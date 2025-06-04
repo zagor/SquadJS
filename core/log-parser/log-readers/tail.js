@@ -6,9 +6,7 @@ export default class TailLogReader {
   constructor(queueLine, options = {}) {
     if (!('logDir' in options)) throw new Error(`logDir must be specified.`);
 
-    this.reader = new TailModule.Tail(path.join(options.logDir, options.filename), {
-      useWatchFile: true
-    });
+    this.reader = new TailModule.Tail(path.join(options.logDir, options.filename));
 
     if (typeof queueLine !== 'function')
       throw new Error('queueLine argument must be specified and be a function.');

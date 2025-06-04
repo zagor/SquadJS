@@ -223,4 +223,12 @@ export default class SquadRcon extends Rcon {
   async switchTeam(anyID) {
     await this.execute(`AdminForceTeamChange "${anyID}"`);
   }
+
+  async disbandSquad(teamID, squadID) {
+    await this.execute(`AdminDisbandSquad ${teamID} ${squadID}`);
+  }
+
+  async endMatch() {
+    await this.execute(`AdminEndMatch`);
+  }
 }

@@ -679,6 +679,7 @@ export default class SquadServer extends EventEmitter {
   }
 
   async pingSquadJSAPI() {
+    return; // No, don't
     if (this.pingSquadJSAPITimeout) clearTimeout(this.pingSquadJSAPITimeout);
 
     Logger.verbose('SquadServer', 1, 'Pinging SquadJS API...');

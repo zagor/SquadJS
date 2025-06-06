@@ -61,7 +61,7 @@ export default class Balance extends BasePlugin {
                              'Balancing:\n' +
                              'You will be team-switched after this round.');
     }
-    showStatus(admin);
+    this.showStatus(admin);
   }
 
   markClan(name, admin) {
@@ -160,13 +160,11 @@ export default class Balance extends BasePlugin {
     const admin = info.player;
     const words = info.message.split(' ');
 
-    if (words[0] === 'clan' && words.length > 1) {
+    if (words[0] === 'clan' && words.length > 1)
       this.markClan(words[1], admin);
-    }
-    else if (words[0] === 'squad' && words.length > 1) {
+    else if (words[0] === 'squad' && words.length > 1)
       this.markSquad(parseInt(words[1]), admin);
-    }
-    else if (words[0] === 'player' && words.length > 1) {
+    else if (words[0] === 'player' && words.length > 1)
       this.markPlayer(words[1], admin);
     else if (words[0] === 'clear') {
       if (words.length > 1)

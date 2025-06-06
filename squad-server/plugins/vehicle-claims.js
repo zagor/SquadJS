@@ -288,33 +288,39 @@ export default class VehicleClaims extends BasePlugin {
     return undefined;
   }
 
-  warnThief(obj, eosID) {
-    console.log('warnThief: %o', eosID);
-    if (eosID in obj.thiefs)
-      obj.server.rcon.warn(eosID,
-                           'Final warning.'
-                           +'\nExit the vehicle or be kicked.');
+  kickThief(obj, eosID) {
+    delete obj.thiefs[eosID];
+    obj.server.rcon.switchTeam(eosID);
+    obj.server.rcon.switchTeam(eosID);
   }
 
+  warnThief(obj, eosID) {
+    console.log('warnThief: %o', eosID);
+    obj.server.rcon.warn(eosID,
+                         'Final warning:'
+                         +'\nExit the vehicle or be kicked!');
+    obj.thiefs[eosID] = setTimeout(obj.kickThief, 10000, obj, eosID);
+  }
 
   async onPlayerPossess(info) {
-    //console.log('Possess: %o', info);
     const vic = this.findVicByClass(info.player.teamID, info.possessClassname);
 
     if (vic && vic.claimedBy && !(info.player.squadId in vic.claimedBy)) {
       this.server.rcon.warn(info.player.eosID,
-                            'This vehicle must be claimed, by rule 4.1.'
-                            + '\nYou do not have the claim.'
-                            +'\nPlease exit the vehicle.');
-      this.thiefs[info.player.eosID] = 1;
-      setTimeout(this.warnThief, 10000, this, info.player.eosID);
+                            'Squad '
+                            + Object.keys(vic.claimedBy).join(' & ')
+                            + ' has claim for this vehicle.'
+                            + '\nPlease exit the vehicle.');
+      this.thiefs[info.player.eosID] =
+        setTimeout(this.warnThief, 10000, this, info.player.eosID);
     }
   }
 
   async onPlayerUnPossess(info) {
-    console.log('unPossess: %o', info);
     const vic = this.findVicByClass(info.player.teamID, info.possessClassname);
-    if (vic && info.player.eosID in this.thiefs)
+    if (vic && info.player.eosID in this.thiefs) {
+      clearTimeout(this.thiefs[info.player.eosID]);
       delete this.thiefs[info.player.eosID];
+    }
   }
 }

@@ -26,6 +26,7 @@ export default class Layer {
         vehicles: (data[t].vehicles || []).map((vehicle) => ({
           name: vehicle.type,
           classname: vehicle.rawType,
+          classnames: vehicle.classNames,
           count: vehicle.count,
           spawnDelay: vehicle.delay,
           respawnDelay: vehicle.respawnTime

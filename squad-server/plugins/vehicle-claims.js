@@ -1,4 +1,3 @@
-import Logger from 'core/logger';
 import BasePlugin from './base-plugin.js';
 
 
@@ -9,11 +8,11 @@ const claimableVehicles = [
   'BTR80', 'BTR82', 'ASLAV', 'LAV25', 'LAV6', 'LAVIII', 'COYOTE',
   'PARSIII25MM', 'PARSIIIM2', 'PARSIIIMG3', 'PARSIIIMK19',
   'ACV25MM', 'ACVM2', 'ACVMG3',
-  'M1126', 'M1128',
+  'M1126', 'M1128', 'M2A3', 'M7A3',
   'ZBL08', 'ZBD04', 'ZBD05', 'ZTD05',
   'BMP1', 'BMP2', 'BMP3', 'BMD1', 'BMD4',
   'BM21', 'MTLBZU23', 'MTLBM6MB',
-  'FV107', 'FV432RWS', 'FV510UA', 'FV510',
+  'FV107', 'FV432RWS', 'FV510UA', 'FV510', 'SPRUT',
 ].concat(TANKS).concat(HELIS);
 
 const multiNames = {
@@ -57,13 +56,14 @@ const vehicleAliases = {
 };
 
 /* still unhandled: Technical UB-32, M1126 CROWS M2 vs M240 */
+/* todo: stryker vs stryker mgs */
 
 class Vehicle {
-  constructor(name, fullName, count, className) {
+  constructor(name, fullName, count, classNames) {
     this.name = name;
     this.fullName = fullName;
     this.count = count;
-    this.className = className
+    this.classNames = classNames
     this.claimedBy = {};
   }
 }
@@ -88,10 +88,15 @@ export default class VehicleClaims extends BasePlugin {
 
   static get optionsSpecification() {
     return {
-      todo: {
+      thief_second_warning_delay: {
         required: false,
-        description: 'Todo todo todo.',
-        default: 42
+        description: 'Time in seconds from first warning to second.',
+        default: 10
+      },
+      thief_kill_delay: {
+        required: false,
+        description: 'Time in seconds from second warning to kill.',
+        default: 10
       },
     }
   }
@@ -121,8 +126,8 @@ export default class VehicleClaims extends BasePlugin {
     this.disband = false;
     for (const squad of this.server.squads) {
       for (const player of this.server.players) {
-        if (player.teamID == squad.teamID
-            && player.squadID == squad.squadID
+        if (player.teamID === squad.teamID
+            && player.squadID === squad.squadID
             && player.isLeader) {
           squad.player = player
           this.onSquadCreated(squad);
@@ -133,7 +138,7 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   stripVicName(name) {
-    return name.toUpperCase().replaceAll(/[\-\ \.]/g, '');
+    return name.toUpperCase().replaceAll(/[- .]/g, '');
   }
 
   getVicFromSquadName(info, teamIndex) {
@@ -166,7 +171,7 @@ export default class VehicleClaims extends BasePlugin {
             foundName = vicName;
           }
         }
-        if (foundCount == 1)
+        if (foundCount === 1)
           return team.vehicles[foundName];
         else if (foundCount > 1) {
           this.server.rcon.warn(info.player.eosID,
@@ -202,14 +207,16 @@ export default class VehicleClaims extends BasePlugin {
     for (const team of this.teams) {
       team.vehicles = {};
       for (const vicDict of this.layer.teams[team.index].vehicles) {
-        const fullName = vicDict['name'];
+        const fullName = vicDict.name;
         const stripName = this.stripVicName(fullName);
         const name = this.isClaimableVehicle(stripName);
         if (!name)
           continue;
         team.vehicles[name] = new Vehicle(name, fullName,
-                                          vicDict['count'],
-                                          vicDict['classname']);
+                                          vicDict.count,
+                                          vicDict.classnames);
+        this.verbose(1,
+                     `Team ${team.index}: ${vicDict.count} ${fullName} ${vicDict.classnames}`);
       }
     }
   }
@@ -218,11 +225,6 @@ export default class VehicleClaims extends BasePlugin {
     this.layer = this.server.currentLayer
     this.teams = [new Team(0), new Team(1)];
     this.setupLayerVehicles();
-    for (const team of this.teams) {
-      for (const [name, vic] of Object.entries(team.vehicles)) {
-        this.verbose(1, 'Team %d: %d %s', team.index, vic.count, vic.name);
-      }
-    }
   }
 
   async onNewGame(info) {
@@ -230,10 +232,12 @@ export default class VehicleClaims extends BasePlugin {
     this.initLayer(info.layer)
   }
 
-  squadRemoved(team, squadID, squadName) {
-    for (const [name, vic] of Object.entries(team.vehicles)) {
-      if (squadID in vic.claimedBy) {
-        this.verbose(1, 'Removing claim on %s', vic.name);
+  async squadRemoved(team, squadID) {
+    await this.server.updateSquadList();
+    await this.server.updatePlayerList(this);
+    for (const vic of Object.values(team.vehicles)) {
+      if (Object.keys(vic.claimedBy).includes(squadID)) {
+        this.verbose(1, 'Removing squad %s claim on %s', squadID, vic.name);
         delete vic.claimedBy[squadID];
         break;
       }
@@ -241,26 +245,20 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async onSquadCreated(info) {
-    if (!this.layer)
-      this.initLayer()
-
     this.verbose(1, 'New squad %d: %s', info.squadID, info.squadName);
 
     const teamIndex = info.player.teamID - 1;
     const team = this.teams[teamIndex];
 
-    if (info.squadID in team.squads) {
-      // reusing previously existing squad number
-      this.verbose(1, 'Squad %d: %s replacing old squad %d',
-                  info.squadID, info.squadName, info.squadID);
-      this.squadRemoved(team, info.squadID, team.squads[info.squadID]);
-    }
+    await this.squadRemoved(team, info.squadID);
+
     team.squads[info.squadID] = info.squadName;
 
     const vic = this.getVicFromSquadName(info, teamIndex);
     if (vic) {
       if (Object.keys(vic.claimedBy).length < vic.count) {
         vic.claimedBy[info.squadID] = true;
+        this.verbose(1, 'Squad %s got claim for %s', info.squadID, vic.name);
         this.server.rcon.warn(info.player.eosID,
                               'You have the claim for ' + vic.fullName);
       }
@@ -272,6 +270,7 @@ export default class VehicleClaims extends BasePlugin {
         if (this.disband)
           this.server.rcon.disbandSquad(info.player.teamID, info.squadID);
       }
+      // console.log('%o', vic);
     }
     else {
       this.verbose(1, 'No vic matching %s', info.squadName);
@@ -280,9 +279,9 @@ export default class VehicleClaims extends BasePlugin {
 
   findVicByClass(teamID, className) {
     const team = this.teams[teamID - 1]
-    for (const [key, vic] of Object.entries(team.vehicles)) {
-      //console.log('team vic %o', vic);
-      if (vic.className == className)
+    for (const vic of Object.values(team.vehicles)) {
+      // console.log('team vic %o', vic);
+      if (vic.classNames.includes(className))
         return vic;
     }
     return undefined;
@@ -295,24 +294,32 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   warnThief(obj, eosID) {
-    console.log('warnThief: %o', eosID);
+    const delay = obj.options.thief_kill_delay;
+    // console.log('warnThief: %o', eosID);
     obj.server.rcon.warn(eosID,
-                         'Final warning:'
-                         +'\nExit the vehicle or be kicked!');
-    obj.thiefs[eosID] = setTimeout(obj.kickThief, 10000, obj, eosID);
+                         'Rule 4.1 violation!\n\n' +
+                         'Exit the vehicle or be killed.\n' +
+                         `You have ${delay} seconds.`);
+    obj.thiefs[eosID] = setTimeout(obj.kickThief, delay * 1000, obj, eosID);
   }
 
   async onPlayerPossess(info) {
     const vic = this.findVicByClass(info.player.teamID, info.possessClassname);
+    if (vic && !(info.player.squadID in vic.claimedBy)) {
+      let text = '';
+      if (Object.keys(vic.claimedBy).length)
+        text = `Squad ${Object.keys(vic.claimedBy).join(' & ')} has claim for this vehicle.\n`;
+      else
+        text = 'This vehicle must be claimed in your squad name.\n';
 
-    if (vic && vic.claimedBy && !(info.player.squadId in vic.claimedBy)) {
       this.server.rcon.warn(info.player.eosID,
-                            'Squad '
-                            + Object.keys(vic.claimedBy).join(' & ')
-                            + ' has claim for this vehicle.'
-                            + '\nPlease exit the vehicle.');
+                            'Rule 4.1 violation!\n\n' +
+                            text +
+                            'Exit the vehicle immediately.');
       this.thiefs[info.player.eosID] =
-        setTimeout(this.warnThief, 10000, this, info.player.eosID);
+        setTimeout(this.warnThief,
+                   this.options.thief_second_warning_delay * 1000,
+                   this, info.player.eosID);
     }
   }
 

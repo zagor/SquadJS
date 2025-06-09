@@ -75,6 +75,14 @@ export default class Balance extends BasePlugin {
         teams[player.teamID-1].push(player);
       }
     }
+    if (teams[0].length == teams[1].length) {
+      this.server.rcon.warn(
+        admin.eosID,
+        'Balancing error:\n' +
+          `There are ${teams[0].length} "${name}" players on both sides.`);
+      return;
+    }
+
     if (teams[0].length >= teams[1].length)
       this.markPlayers(teams[0], admin);
     else
@@ -83,6 +91,9 @@ export default class Balance extends BasePlugin {
 
   markSquad(squadID, admin) {
     const players = [];
+
+    this.server.updatePlayerList(this);
+
     for (const player of this.server.players) {
       if (player.teamID == admin.teamID && player.squadID == squadID) {
         players.push(player);
@@ -158,14 +169,14 @@ export default class Balance extends BasePlugin {
       return;
 
     const admin = info.player;
-    const words = info.message.split(' ');
+    const words = info.message.toLowerCase().split(' ');
 
     if (words[0] === 'clan' && words.length > 1)
       this.markClan(words[1], admin);
     else if (words[0] === 'squad' && words.length > 1)
-      this.markSquad(parseInt(words[1]), admin);
+      this.markSquad(parseInt(words[1].toLowerCase()), admin);
     else if (words[0] === 'player' && words.length > 1)
-      this.markPlayer(words[1], admin);
+      this.markPlayer(words[1].toLowerCase(), admin);
     else if (words[0] === 'clear') {
       if (words.length > 1)
         this.clearPlayer(words[1], admin);

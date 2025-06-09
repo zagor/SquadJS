@@ -258,15 +258,15 @@ export default class VehicleClaims extends BasePlugin {
     if (vic) {
       if (Object.keys(vic.claimedBy).length < vic.count) {
         vic.claimedBy[info.squadID] = true;
-        this.verbose(1, 'Squad %s got claim for %s', info.squadID, vic.name);
+        this.verbose(1, 'Squad %s got claim for %s.', info.squadID, vic.name);
         this.server.rcon.warn(info.player.eosID,
-                              'You have the claim for ' + vic.fullName);
+                              'You have the claim for ' + vic.fullName + '.');
       }
       else {
         this.server.rcon.warn(info.player.eosID,
                               vic.fullName
                               + ' is already claimed by squad '
-                              + Object.keys(vic.claimedBy).join(' & '));
+                              + Object.keys(vic.claimedBy).join(' & ') + '.');
         if (this.disband)
           this.server.rcon.disbandSquad(info.player.teamID, info.squadID);
       }
@@ -308,7 +308,7 @@ export default class VehicleClaims extends BasePlugin {
     if (vic && !(info.player.squadID in vic.claimedBy)) {
       let text = '';
       if (Object.keys(vic.claimedBy).length)
-        text = `Squad ${Object.keys(vic.claimedBy).join(' & ')} has claim for this vehicle.\n`;
+        text = `Squad ${Object.keys(vic.claimedBy).join(' & ')} has the claim for this vehicle.\n`;
       else
         text = 'This vehicle must be claimed in your squad name.\n';
 

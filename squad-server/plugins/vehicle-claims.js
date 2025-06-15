@@ -214,9 +214,9 @@ export default class VehicleClaims extends BasePlugin {
           continue;
         team.vehicles[name] = new Vehicle(name, fullName,
                                           vicDict.count,
-                                          vicDict.classnames);
+                                          vicDict.classNames);
         this.verbose(1,
-                     `Team ${team.index}: ${vicDict.count} ${fullName} ${vicDict.classnames}`);
+                     `Team ${team.index}: ${vicDict.count} ${fullName} ${vicDict.classNames}`);
       }
     }
   }

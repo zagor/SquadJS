@@ -7,7 +7,7 @@ import Layer from './layer.js';
 class Layers {
   constructor() {
     this.layers = [];
-
+    this.units = {};
     this.pulled = false;
   }
 
@@ -22,14 +22,15 @@ class Layers {
 
     Logger.verbose('Layers', 1, 'Pulling layers...');
     const response = await axios.get(
-      'https://raw.githubusercontent.com/fantinodavide/SquadLayerList/main/layers.old.json'
+      'https://raw.githubusercontent.com/fantinodavide/SquadLayerList/main/layers.json'
     );
 
     for (const layer of response.data.Maps) {
       this.layers.push(new Layer(layer));
     }
+    this.units = response.data.Units;
 
-    Logger.verbose('Layers', 1, `Pulled ${this.layers.length} layers.`);
+    Logger.verbose('Layers', 1, `Pulled ${this.layers.length} layers and ${Object.keys(this.units).length} units.`);
 
     this.pulled = true;
 

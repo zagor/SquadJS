@@ -7,7 +7,7 @@ import Layer from './layer.js';
 class Layers {
   constructor() {
     this.layers = [];
-
+    this.units = {};
     this.pulled = false;
   }
 

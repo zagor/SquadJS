@@ -98,17 +98,24 @@ export default class VehicleClaims extends BasePlugin {
         description: 'Time in seconds from second warning to kill.',
         default: 10
       },
+      command: {
+        required: false,
+        description: 'Admin chat command.',
+        default: "claims"
+      },
     }
   }
 
   constructor(server, options, connectors) {
     super(server, options, connectors);
+    this.enabled = options.enabled;
     this.disband = true;
     this.thiefs = {};
     this.onNewGame = this.onNewGame.bind(this);
     this.onSquadCreated = this.onSquadCreated.bind(this);
     this.onPlayerPossess = this.onPlayerPossess.bind(this);
     this.onPlayerUnPossess = this.onPlayerUnPossess.bind(this);
+    this.onChatCommand = this.onChatCommand.bind(this);
   }
 
   async mount() {
@@ -116,9 +123,38 @@ export default class VehicleClaims extends BasePlugin {
     this.server.on('SQUAD_CREATED', this.onSquadCreated);
     this.server.on('PLAYER_POSSESS', this.onPlayerPossess);
     this.server.on('PLAYER_UNPOSSESS', this.onPlayerUnPossess);
+    this.server.on(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
     this.initLayer();
     if (this.server.squads.length)
       this.createInitialSquads();
+  }
+
+  async onChatCommand(info) {
+    if (info.chat !== 'ChatAdmin')
+      return;
+
+    const admin = info.player;
+    const words = info.message.toLowerCase().split(' ');
+
+    if (words[0] === 'enable' && !this.enabled) {
+      this.enabled = true;
+      const msg = 'Automatic claim enforcement enabled.';
+      this.server.rcon.warn(admin.eosID, msg);
+      this.server.rcon.broadcast(msg);
+    }
+    else if (words[0] === 'disable' && this.enabled) {
+      this.enabled = false;
+      const msg = 'Automatic claim enforcement disabled.';
+      this.server.rcon.warn(admin.eosID, msg);
+      this.server.rcon.broadcast(msg);
+    }
+    else {
+      const msg =
+            `Claim enforcement is ${this.enabled ? "en" : "dis"}abled.\n`
+            + `!${this.options.command} enable\n`
+            + `!${this.options.command} disable`;
+      this.server.rcon.warn(admin.eosID, msg);
+    }
   }
 
   createInitialSquads() {
@@ -228,8 +264,12 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async onNewGame(info) {
-    this.verbose(1, 'New game');
-    this.initLayer(info.layer)
+    try {
+      this.initLayer();
+    }
+    catch(err) {
+      this.verbose(1, "Caught error " + err);
+    }
   }
 
   async squadRemoved(team, squadID) {
@@ -245,6 +285,16 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async onSquadCreated(info) {
+    try {
+      this._onSquadCreated(info);
+    }
+    catch (err) {
+      this.verbose(1, "Caught error " + err);
+    }
+  }
+
+  async _onSquadCreated(info) {
+    if (!this.enabled) return;
     this.verbose(1, 'New squad %d: %s', info.squadID, info.squadName);
 
     const teamIndex = info.player.teamID - 1;
@@ -287,7 +337,7 @@ export default class VehicleClaims extends BasePlugin {
     return undefined;
   }
 
-  kickThief(obj, eosID) {
+  killThief(obj, eosID) {
     delete obj.thiefs[eosID];
     obj.server.rcon.switchTeam(eosID);
     obj.server.rcon.switchTeam(eosID);
@@ -295,15 +345,24 @@ export default class VehicleClaims extends BasePlugin {
 
   warnThief(obj, eosID) {
     const delay = obj.options.thief_kill_delay;
-    // console.log('warnThief: %o', eosID);
     obj.server.rcon.warn(eosID,
-                         'Rule 4.1 violation!\n\n' +
+                         'Claim violation!\n\n' +
                          'Exit the vehicle or be killed.\n' +
                          `You have ${delay} seconds.`);
-    obj.thiefs[eosID] = setTimeout(obj.kickThief, delay * 1000, obj, eosID);
+    obj.thiefs[eosID] = setTimeout(obj.killThief, delay * 1000, obj, eosID);
   }
 
   async onPlayerPossess(info) {
+    try {
+      this._onPlayerPossess(info);
+    }
+    catch (err) {
+      this.verbose(1, "Caught error " + err);
+    }
+  }
+
+  async _onPlayerPossess(info) {
+    if (!this.enabled) return;
     const vic = this.findVicByClass(info.player.teamID, info.possessClassname);
     if (vic && !(info.player.squadID in vic.claimedBy)) {
       let text = '';
@@ -313,7 +372,7 @@ export default class VehicleClaims extends BasePlugin {
         text = 'This vehicle must be claimed in your squad name.\n';
 
       this.server.rcon.warn(info.player.eosID,
-                            'Rule 4.1 violation!\n\n' +
+                            'Claim violation!\n\n' +
                             text +
                             'Exit the vehicle immediately.');
       this.thiefs[info.player.eosID] =
@@ -324,6 +383,17 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async onPlayerUnPossess(info) {
+    try {
+      this._onPlayerUnPossess(info);
+    }
+    catch (err) {
+      this.verbose(1, "Caught error " + err);
+    }
+  }
+
+
+  async _onPlayerUnPossess(info) {
+    if (!this.enabled) return;
     const vic = this.findVicByClass(info.player.teamID, info.possessClassname);
     if (vic && info.player.eosID in this.thiefs) {
       clearTimeout(this.thiefs[info.player.eosID]);

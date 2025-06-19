@@ -538,14 +538,13 @@ export default class SquadServer extends EventEmitter {
   setupTeams() {
     for (const t in [0, 1]) {
       const unit = Layers.units[this.unitNames[t]];
-      let team = {
+      this.currentLayer.teams[t] = {
         faction: unit.factionID,
         name: unit.displayName,
         tickets: this.currentLayer.tickets[t],
         commander: this.currentLayer.commander,
         vehicles: unit.vehicles,
       };
-      this.currentLayer.teams[t] = team;
     }
   }
 

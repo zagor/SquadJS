@@ -20,8 +20,8 @@ export default class Balance extends BasePlugin {
       },
       delay: {
         required: false,
-        description: 'Delay (in seconds) before moving players when round ends.',
-        default: 10
+        description: 'Delay (in seconds) before moving players after round ends.',
+        default: 20
       }
     };
   }
@@ -199,6 +199,7 @@ export default class Balance extends BasePlugin {
   }
 
   async movePlayers(obj) {
+    obj.server.rcon.broadcast('Teams are being balanced.');
     for (const player of obj.markedPlayers) {
       obj.server.rcon.switchTeam(player.eosID);
     }

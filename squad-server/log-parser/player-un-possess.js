@@ -2,7 +2,7 @@ import { iterateIDs, capitalID } from 'core/id-parser';
 
 export default {
   regex:
-    /^[0-9]*\[([0-9.:-]+)]\[([ 0-9]*)]LogSquadTrace: \[DedicatedServer](?:ASQPlayerController::)?OnUnPossess\(\): PC=(.+) \(Online IDs:([^)]+)\) .*FullPath=([A-z0-9_]+) .+Seat Number=([0-9]+)/,
+    /^\[([0-9.:-]+)]\[([ 0-9]*)]LogSquadTrace: \[DedicatedServer](?:ASQPlayerController::)?OnUnPossess\(\): PC=(.+) \(Online IDs:([^)]+)\) .*FullPath=([A-z0-9_]+)/,
   onMatch: (args, logParser) => {
     if (args[4].includes('INVALID')) return; // bail in case of bad IDs.
     const data = {
@@ -10,8 +10,7 @@ export default {
       time: args[1],
       chainID: args[2],
       playerSuffix: args[3],
-      possessClassname: args[5],
-      seatNum: parseInt(args[6])
+      possessClassname: args[5]
     };
     iterateIDs(args[4]).forEach((platform, id) => {
       data['player' + capitalID(platform)] = id;

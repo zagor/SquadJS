@@ -172,7 +172,7 @@ export default class Balance extends BasePlugin {
     const words = info.message.toLowerCase().split(' ');
 
     if (words[0] === 'clan' && words.length > 1)
-      this.markClan(words[1], admin);
+      this.markClan(words[1].toLowerCase(), admin);
     else if (words[0] === 'squad' && words.length > 1)
       this.markSquad(parseInt(words[1].toLowerCase()), admin);
     else if (words[0] === 'player' && words.length > 1)
@@ -190,6 +190,7 @@ export default class Balance extends BasePlugin {
   }
 
   async onRoundEnded(info) {
+    if (!this.markedPlayers.length) return;
     this.timeout = setTimeout(this.movePlayers, this.options.delay * 1000, this);
     for (const player of this.markedPlayers) {
       this.server.rcon.warn(player.eosID,

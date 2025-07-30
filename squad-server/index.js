@@ -542,19 +542,6 @@ export default class SquadServer extends EventEmitter {
     return this.updateServerInformation();
   }
 
-  setupTeams() {
-    for (const t in [0, 1]) {
-      const unit = Layers.units[this.unitNames[t]];
-      this.currentLayer.teams[t] = {
-        faction: unit.factionID,
-        name: unit.displayName,
-        tickets: this.currentLayer.tickets[t],
-        commander: this.currentLayer.commander,
-        vehicles: unit.vehicles,
-      };
-    }
-  }
-
   async updateServerInformation() {
     if (this.updateA2SInformationTimeout) clearTimeout(this.updateA2SInformationTimeout);
 

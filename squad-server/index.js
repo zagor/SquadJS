@@ -198,13 +198,12 @@ export default class SquadServer extends EventEmitter {
     });
 
     this.logParser.on('NEW_GAME', async (data) => {
-      data.layer = await Layers.getLayerByClassname(data.layerClassname);
+      await this.updateLayerInformation();
+      data.layer = this.currentLayer;
 
       this.layerHistory.unshift({ layer: data.layer, time: data.time });
       this.layerHistory = this.layerHistory.slice(0, this.layerHistoryMaxLength);
 
-      this.currentLayer = data.layer;
-      await this.updateServerInformation();
       await this.updateAdmins();
       this.emit('NEW_GAME', data);
     });
@@ -506,8 +505,12 @@ export default class SquadServer extends EventEmitter {
       const nextMap = await this.rcon.getNextMap();
       const nextMapToBeVoted = nextMap.layer === 'To be voted';
 
-      const currentLayer = await Layers.getLayerById(currentMap.layer);
-      const nextLayer = nextMapToBeVoted ? null : await Layers.getLayerById(nextMap.layer);
+      const currentLayer = await Layers.getLayerById(currentMap.layer,
+                                                     currentMap.factionOne,
+                                                     currentMap.factionTwo);
+      const nextLayer = nextMapToBeVoted ? null : await Layers.getLayerById(nextMap.layer,
+                                                                            nextMap.factionOne,
+                                                                            nextMap.factionTwo);
 
       if (this.layerHistory.length === 0) {
         this.layerHistory.unshift({ layer: currentLayer, time: Date.now() });
@@ -533,19 +536,6 @@ export default class SquadServer extends EventEmitter {
 
   updateA2SInformation() {
     return this.updateServerInformation();
-  }
-
-  setupTeams() {
-    for (const t in [0, 1]) {
-      const unit = Layers.units[this.unitNames[t]];
-      this.currentLayer.teams[t] = {
-        faction: unit.factionID,
-        name: unit.displayName,
-        tickets: this.currentLayer.tickets[t],
-        commander: this.currentLayer.commander,
-        vehicles: unit.vehicles,
-      };
-    }
   }
 
   async updateServerInformation() {
@@ -599,9 +589,8 @@ export default class SquadServer extends EventEmitter {
       this.matchStartTime = info.matchStartTime;
       this.gameVersion = info.gameVersion;
 
-      if (!this.currentLayer) this.currentLayer = Layers.getLayerByClassname(info.currentLayer);
-      if (!this.nextLayer) this.nextLayer = Layers.getLayerByClassname(info.nextLayer);
-      if (!this.currentLayer.teams.length) this.setupTeams();
+      if (!this.currentLayer)
+        await this.updateLayerInformation();
 
       this.emit('UPDATED_A2S_INFORMATION', info);
       this.emit('UPDATED_SERVER_INFORMATION', info);

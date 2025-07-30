@@ -124,9 +124,7 @@ export default class VehicleClaims extends BasePlugin {
     this.server.on('PLAYER_POSSESS', this.onPlayerPossess);
     this.server.on('PLAYER_UNPOSSESS', this.onPlayerUnPossess);
     this.server.on(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
-    this.initLayer();
-    if (this.server.squads.length)
-      this.createInitialSquads();
+    await this.onNewGame();
   }
 
   async onChatCommand(info) {
@@ -263,9 +261,30 @@ export default class VehicleClaims extends BasePlugin {
     this.setupLayerVehicles();
   }
 
-  async onNewGame(info) {
+  async createInitialSquads() {
+    // team info is not available until after up to 30s after map loads,
+    // so we have to go through all squads that were created prior to this
+    for (const squad of this.server.squads) {
+      this.verbose(2, `Found squad ${squad}`);
+      for (const player of this.server.players) {
+        if (player.teamID === squad.teamID
+            && parseInt(player.squadID) === squad.squadID
+            && player.isLeader) {
+          squad.player = player
+          await this.onSquadCreated(squad);
+          break;
+        }
+      }
+    }
+  }
+
+  async onNewGame() {
+    if (!this.enabled) return;
     try {
-      this.initLayer();
+      this.verbose(1, "New layer");
+      await this.initLayer();
+      if (this.server.squads.length)
+        await this.createInitialSquads();
     }
     catch(err) {
       this.verbose(1, "Caught error " + err);

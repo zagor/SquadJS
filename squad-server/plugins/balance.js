@@ -47,7 +47,7 @@ export default class Balance extends BasePlugin {
   }
 
   showStatus(admin) {
-    let adminWarn = `${this.markedPlayers.length} players marked for balance:`;
+    let adminWarn = `${this.markedPlayers.length} players selected for balancing:`;
     for (const player of this.markedPlayers)
       adminWarn += '\n' + player.name;
     this.server.rcon.warn(admin.eosID, adminWarn);
@@ -131,20 +131,20 @@ export default class Balance extends BasePlugin {
       const index = this.markedPlayers.indexOf(player);
       this.server.rcon.warn(player.eosID,
                             'Balancing:\n' +
-                            'You are no longer marked for team-switch.');
+                            'You are no longer selected for team-switch.');
       this.markedPlayers.splice(index, 1);
     }
     else
       this.server.rcon.warn( admin.eosID,
                              'Balancing error:\n' +
-                             `Name "${name}" matched ${matchedPlayers.length} marked players.`);
+                             `Name "${name}" matched ${matchedPlayers.length} selected players.`);
   }
 
   clearAll(admin) {
     for (const player of this.markedPlayers) {
       this.server.rcon.warn(player.eosID,
                             'Balancing:\n' +
-                            'You are no longer marked for team-switch.');
+                            'You are no longer selected for team-switch.');
     }
     this.server.rcon.warn(admin.eosID,
                           'Balancing:\n' +
@@ -192,11 +192,6 @@ export default class Balance extends BasePlugin {
   async onRoundEnded(info) {
     if (!this.markedPlayers.length) return;
     this.timeout = setTimeout(this.movePlayers, this.options.delay * 1000, this);
-    for (const player of this.markedPlayers) {
-      this.server.rcon.warn(player.eosID,
-                            'Balancing:\n' +
-                            `You will be team-switched in ${this.options.delay} seconds.`);
-    }
   }
 
   async movePlayers(obj) {

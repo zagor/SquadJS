@@ -44,12 +44,14 @@ class Layers {
     return null;
   }
 
-  convertFactionToUnit(layer, factionName) {
+  convertFactionToUnit(layer, factionName, teamIndex) {
     // From factionName, in format "ADF+Mechanized", return the correct
     // "ADF_XX_Mechanized" for current layer.
     const factionParts = factionName.split("+");
-    //console.log('layer: %o', layer);
-    const matches = layer.factions.filter((l) => l.factionId === factionParts[0]);
+    const matches = layer.factions.filter((f) =>
+      f.factionId === factionParts[0] &&
+        f.availableOnTeams.includes(teamIndex + 1)
+    );
     if (matches.length === 1) {
       const faction = matches[0];
       if (factionParts.length === 1) {
@@ -72,7 +74,7 @@ class Layers {
       layer.teams = [];
       for (const t of [0, 1]) {
         const faction = factions[t];
-        const unitName = this.convertFactionToUnit(layer, faction);
+        const unitName = this.convertFactionToUnit(layer, faction, t);
         const unit = this.units[unitName];
         layer.teams[t] = {
           faction: unit.factionID,

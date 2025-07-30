@@ -65,6 +65,8 @@ class Vehicle {
     this.count = count;
     this.classNames = classNames
     this.claimedBy = {};
+    this.rescueTimer = null;
+    this.rescuer = null;
   }
 }
 
@@ -98,6 +100,16 @@ export default class VehicleClaims extends BasePlugin {
         description: 'Time in seconds from second warning to kill.',
         default: 10
       },
+      rescue_command: {
+        required: false,
+        description: 'Rescue chat command.',
+        default: "rescue"
+      },
+      rescue_timeout: {
+        required: false,
+        description: 'Rescue exception timeout, in seconds.',
+        default: 300
+      },
       command: {
         required: false,
         description: 'Admin chat command.',
@@ -116,6 +128,7 @@ export default class VehicleClaims extends BasePlugin {
     this.onPlayerPossess = this.onPlayerPossess.bind(this);
     this.onPlayerUnPossess = this.onPlayerUnPossess.bind(this);
     this.onChatCommand = this.onChatCommand.bind(this);
+    this.onRescue = this.onRescue.bind(this);
   }
 
   async mount() {
@@ -124,7 +137,59 @@ export default class VehicleClaims extends BasePlugin {
     this.server.on('PLAYER_POSSESS', this.onPlayerPossess);
     this.server.on('PLAYER_UNPOSSESS', this.onPlayerUnPossess);
     this.server.on(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
+    this.server.on(`CHAT_COMMAND:${this.options.rescue_command}`, this.onRescue);
     await this.onFirstStart();
+  }
+
+  async onRescue(info) {
+    if (info.chat !== 'ChatSquad') {
+      this.server.rcon.warn(info.player.eosID,
+                            "The rescue command only works in squad chat.");
+      return;
+    }
+
+    if (!info.player.isLeader) {
+      this.server.rcon.warn(info.player.eosID,
+                            "The rescue command can only be used by the squad leader.");
+      return;
+    }
+
+
+    let foundVic = null;
+    const team = this.teams[info.player.teamID - 1];
+    const squadID = info.player.squadID.toString();
+    for (const vic of Object.values(team.vehicles)) {
+      if (Object.keys(vic.claimedBy).includes(squadID)) {
+        foundVic = vic;
+        break;
+      }
+    }
+
+    if (foundVic) {
+      this.server.rcon.warn(
+        info.player.eosID,
+        'Rescue mode:\n\n' +
+          `${foundVic.fullName} can be entered without claim for the next ${this.options.rescue_timeout / 60} minutes.`);
+      if (foundVic.rescueTimer)
+        clearTimeout(foundVic.rescueTimer);
+
+      foundVic.rescueTimer = setTimeout(this.rescueTimeout,
+                                        this.options.rescue_timeout * 1000,
+                                        this, foundVic, info.player);
+    }
+    else {
+      this.server.rcon.warn(info.player.eosID, "You don't have a vehicle to rescue.");
+      return;
+    }
+  }
+
+  rescueTimeout(obj, vic, player) {
+    vic.rescueTimer = null;
+    obj.server.rcon.warn(player.eosID, `Rescue timer expired for ${vic.fullName}.`);
+    if (vic.rescuer) {
+      obj.server.rcon.warn(vic.rescuer, `Rescue timer expired for ${vic.fullName}.`);
+      vic.rescuer = null;
+    }
   }
 
   async onChatCommand(info) {
@@ -153,22 +218,6 @@ export default class VehicleClaims extends BasePlugin {
             + `!${this.options.command} disable`;
       this.server.rcon.warn(admin.eosID, msg);
     }
-  }
-
-  createInitialSquads() {
-    // if SquadJS was started in the middle of a game, read the room
-    this.disband = false;
-    for (const squad of this.server.squads) {
-      for (const player of this.server.players) {
-        if (player.teamID === squad.teamID
-            && player.squadID === squad.squadID
-            && player.isLeader) {
-          squad.player = player
-          this.onSquadCreated(squad);
-        }
-      }
-    }
-    this.disband = true;
   }
 
   stripVicName(name) {
@@ -395,6 +444,14 @@ export default class VehicleClaims extends BasePlugin {
     if (!this.enabled) return;
     const vic = this.findVicByClass(info.player.teamID, info.possessClassname);
     if (vic && !(info.player.squadID in vic.claimedBy)) {
+      if (vic.rescueTimer) {
+        this.server.rcon.warn(info.player.eosID,
+                              'Rescue mode:\n\n' +
+                              'This vehicle can temporarily be entered without claim.');
+        vic.rescuer = info.player.eosID;
+        return;
+      }
+
       let text = '';
       if (Object.keys(vic.claimedBy).length)
         text = `Squad ${Object.keys(vic.claimedBy).join(' & ')} has the claim for this vehicle.\n`;

@@ -301,9 +301,10 @@ export default class VehicleClaims extends BasePlugin {
     }
   }
 
-  async squadRemoved(team, squadID) {
+  async squadRemoved(team, squadNum) {
     await this.server.updateSquadList();
     await this.server.updatePlayerList();
+    const squadID = squadNum.toString();
     for (const vic of Object.values(team.vehicles)) {
       if (Object.keys(vic.claimedBy).includes(squadID)) {
         this.verbose(1, 'Removing squad %s claim on %s', squadID, vic.name);

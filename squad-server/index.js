@@ -505,12 +505,14 @@ export default class SquadServer extends EventEmitter {
       const nextMap = await this.rcon.getNextMap();
       const nextMapToBeVoted = nextMap.layer === 'To be voted';
 
-      const currentLayer = await Layers.getLayerById(currentMap.layer,
-                                                     currentMap.factionOne,
-                                                     currentMap.factionTwo);
-      const nextLayer = nextMapToBeVoted ? null : await Layers.getLayerById(nextMap.layer,
-                                                                            nextMap.factionOne,
-                                                                            nextMap.factionTwo);
+      const [currentLayer, currentTeams] =
+            await Layers.getLayerById(currentMap.layer,
+                                      currentMap.factionOne,
+                                      currentMap.factionTwo);
+      const [nextLayer, nextTeams] =
+            nextMapToBeVoted ? null : await Layers.getLayerById(nextMap.layer,
+                                                                nextMap.factionOne,
+                                                                nextMap.factionTwo);
 
       if (this.layerHistory.length === 0) {
         this.layerHistory.unshift({ layer: currentLayer, time: Date.now() });
@@ -518,7 +520,9 @@ export default class SquadServer extends EventEmitter {
       }
 
       this.currentLayer = currentLayer;
+      this.currentTeams = currentTeams;
       this.nextLayer = nextLayer;
+      this.nextTeams = nextTeams;
       this.nextLayerToBeVoted = nextMapToBeVoted;
 
       this.emit('UPDATED_LAYER_INFORMATION');

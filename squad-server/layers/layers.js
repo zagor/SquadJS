@@ -71,22 +71,24 @@ class Layers {
     const layer = await this.getLayerByCondition((layer) => layer.layerid === layerId);
     if (layer) {
       const factions = [factionOne, factionTwo];
-      layer.teams = [];
+      let teams = [];
       for (const t of [0, 1]) {
         const faction = factions[t];
         const unitName = this.convertFactionToUnit(layer, faction, t);
         const unit = this.units[unitName];
-        layer.teams[t] = {
+        teams[t] = {
           faction: unit.factionID,
           name: unit.displayName,
-          unit: unitName,
+          unitID: unitName,
+          unit: unit,
           tickets: layer.tickets[t],
           commander: layer.commander,
           vehicles: unit.vehicles,
         };
       }
+      return [layer, teams]
     }
-    return layer;
+    return [layer, undefined];
   }
 }
 

@@ -292,7 +292,7 @@ export default class VehicleClaims extends BasePlugin {
   setupLayerVehicles() {
     for (const team of this.teams) {
       team.vehicles = {};
-      for (const vicDict of this.layer.teams[team.index].vehicles) {
+      for (const vicDict of this.server.currentTeams[team.index].vehicles) {
         const fullName = vicDict.name;
         const stripName = this.stripVicName(fullName);
         const name = this.isClaimableVehicle(stripName);

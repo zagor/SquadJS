@@ -292,6 +292,7 @@ export default class VehicleClaims extends BasePlugin {
   setupLayerVehicles() {
     for (const team of this.teams) {
       team.vehicles = {};
+      const faction = this.server.currentTeams[team.index].faction;
       for (const vicDict of this.server.currentTeams[team.index].vehicles) {
         const fullName = vicDict.name;
         const stripName = this.stripVicName(fullName);
@@ -301,13 +302,17 @@ export default class VehicleClaims extends BasePlugin {
         team.vehicles[name] = new Vehicle(name, fullName,
                                           vicDict.count,
                                           vicDict.classNames);
-        this.verbose(1, `Team ${team.index}: ${vicDict.count} ${fullName}`);
+        this.verbose(1, `${faction}: ${vicDict.count} x ${fullName}`);
       }
     }
   }
 
   initLayer() {
-    this.layer = this.server.currentLayer
+    this.layer = this.server.currentLayer;
+    this.verbose(1, "Init layer: %s, %s vs %s",
+                 this.layer.name,
+                 this.server.currentTeams[0].unitID,
+                 this.server.currentTeams[1].unitID);
     this.teams = [new Team(0), new Team(1)];
     this.setupLayerVehicles();
   }
@@ -315,8 +320,8 @@ export default class VehicleClaims extends BasePlugin {
   async createInitialSquads() {
     for (const squad of this.server.squads) {
       for (const player of this.server.players) {
-        if (player.teamID === squad.teamID
-            && parseInt(player.squadID) === squad.squadID
+        if (player.teamID == squad.teamID
+            && player.squadID == squad.squadID
             && player.isLeader) {
           squad.player = player
           await this.onSquadCreated(squad);
@@ -342,7 +347,6 @@ export default class VehicleClaims extends BasePlugin {
   async onNewGame() {
     if (!this.enabled) return;
     try {
-      this.verbose(1, "New layer:", this.server.currentLayer.name);
       this.initLayer();
     }
     catch(err) {
@@ -350,15 +354,20 @@ export default class VehicleClaims extends BasePlugin {
     }
   }
 
-  async squadRemoved(team, squadNum) {
+  async pruneSquadClaims(team, squadNum) {
+    if (Object.keys(team.squads).length === 0) return;
     await this.server.updateSquadList();
-    await this.server.updatePlayerList();
-    const squadID = squadNum.toString();
+    const teamSquads = this.server.squads.filter((f) => f.teamID == team.index + 1);
+    let existingSquads = [];
+    for (const squad of teamSquads) {
+      existingSquads.push(squad.squadID.toString());
+    }
     for (const vic of Object.values(team.vehicles)) {
-      if (Object.keys(vic.claimedBy).includes(squadID)) {
-        this.verbose(1, 'Removing squad %s claim on %s', squadID, vic.name);
-        delete vic.claimedBy[squadID];
-        break;
+      for (const s of Object.keys(vic.claimedBy)) {
+        if ((s == squadNum) || !existingSquads.includes(s)) {
+          this.verbose(2, 'Removing squad %s claim on %s', s, vic.name);
+          delete vic.claimedBy[s];
+        }
       }
     }
   }
@@ -374,12 +383,15 @@ export default class VehicleClaims extends BasePlugin {
 
   async _onSquadCreated(info) {
     if (!this.enabled) return;
-    this.verbose(1, 'New squad %d: %s', info.squadID, info.squadName);
 
     const teamIndex = info.player.teamID - 1;
     const team = this.teams[teamIndex];
+    const faction = this.server.currentTeams[teamIndex].faction;
 
-    await this.squadRemoved(team, info.squadID);
+    this.verbose(1, '%s: New squad %d: %s',
+                 faction, info.squadID, info.squadName);
+
+    await this.pruneSquadClaims(team, info.squadID);
 
     team.squads[info.squadID] = info.squadName;
 
@@ -387,7 +399,8 @@ export default class VehicleClaims extends BasePlugin {
     if (vic) {
       if (Object.keys(vic.claimedBy).length < vic.count) {
         vic.claimedBy[info.squadID] = true;
-        this.verbose(1, 'Squad %s got claim for %s.', info.squadID, vic.name);
+        this.verbose(1, '%s: Squad %d %s got claim for %s.',
+                     faction, info.squadID, info.squadName, vic.name);
         this.server.rcon.warn(info.player.eosID,
                               'You have the claim for ' + vic.fullName + '.');
       }
@@ -399,17 +412,15 @@ export default class VehicleClaims extends BasePlugin {
         if (this.disband)
           this.server.rcon.disbandSquad(info.player.teamID, info.squadID);
       }
-      // console.log('%o', vic);
     }
     else {
-      this.verbose(1, 'No vic matching %s', info.squadName);
+      this.verbose(2, '%s: No vic matching %s', faction, info.squadName);
     }
   }
 
   findVicByClass(teamID, className) {
     const team = this.teams[teamID - 1]
     for (const vic of Object.values(team.vehicles)) {
-      // console.log('team vic %o', vic);
       if (vic.classNames.includes(className))
         return vic;
     }

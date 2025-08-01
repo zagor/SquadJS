@@ -76,6 +76,16 @@ time to lift a meter or two from the pad. The rotors may break, but the
 helicopter most likely survives.
 
 
+## Rescue mode
+
+The squad leader holding the claim of a stranded vehicle can write
+`!rescue` in his squad chat to unlock his vehicle for 5 minutes.
+This allows any player to enter and drive any vehicle of the unlocked type.
+
+The command only works in squad chat. This is to keep it somewhat
+confidential and reduce the risk of abuse.
+
+
 ## Questions
 
 Q: What about transporting other squads in a claimed vehicle? Will they be killed when entering?
@@ -99,11 +109,3 @@ claim?
 A: The plugin doesn't care about squad numbers, it cares about who claims
 first. Since squad 2 already have claim for the tank, anyone trying to
 claim it afterwards will be rejected no matter their squad number.
-
-
-Q: What about rescuing other squads' vehicles? Sometimes a squad without
-claim helps driving another squad's vehicle out of harms way.
-
-A: The squad leader with claim for the vehicle can write !rescue in squad
-chat to unlock his claim for 5 minutes. During that time, anyone else can
-enter and drive the vehicle.

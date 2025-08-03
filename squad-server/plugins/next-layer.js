@@ -70,6 +70,7 @@ export default class NextLayer extends BasePlugin {
 
   async onChatCommand(info) {
     try {
+      await this.server.updateLayerInformation();
       const unitRegex = /(\w+)_(\w+)_(\w+)/;
       let units = [];
       for (const team of this.server.nextTeams) {

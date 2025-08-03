@@ -65,7 +65,7 @@ export default class NextLayer extends BasePlugin {
   }
 
   async onRoundEnd() {
-    clearInterval(this.broadcastTimer);
+    clearTimeout(this.broadcastTimer);
   }
 
   async onChatCommand(info) {

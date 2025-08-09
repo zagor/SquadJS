@@ -153,29 +153,28 @@ export default class VehicleClaims extends BasePlugin {
       return;
     }
 
-    if (!info.player.isLeader) {
-      this.server.rcon.warn(info.player.eosID,
-                            "The rescue command can only be used by the squad leader.");
-      return;
-    }
-
-
     let foundVic = null;
-    const team = this.teams[info.player.teamID - 1];
-    const squadID = info.player.squadID.toString();
-    for (const vic of Object.values(team.vehicles)) {
-      if (Object.keys(vic.claimedBy).includes(squadID)) {
-        foundVic = vic;
-        break;
-      }
-    }
-
-    if (!foundVic && info.message && this.isAdmin(info.player.steamID)) {
+    if (info.message && this.isAdmin(info.player.steamID)) {
       foundVic = this.getVicFromName(info.message, info.player);
       if (!foundVic) {
         this.server.rcon.warn(info.player.eosID, `No vehicle matches "${info.message}".`);
         return;
       }
+    }
+    else if (info.player.isLeader) {
+      const team = this.teams[info.player.teamID - 1];
+      const squadID = info.player.squadID.toString();
+      for (const vic of Object.values(team.vehicles)) {
+        if (Object.keys(vic.claimedBy).includes(squadID)) {
+          foundVic = vic;
+          break;
+        }
+      }
+    }
+    else {
+      this.server.rcon.warn(info.player.eosID,
+                            "The rescue command can only be used by the squad leader.");
+      return;
     }
 
     if (foundVic) {

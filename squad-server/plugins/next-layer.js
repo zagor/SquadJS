@@ -18,6 +18,11 @@ export default class NextLayer extends BasePlugin {
         description: 'The command word used for showing next layer.',
         default: 'nextlayer'
       },
+      on_seed: {
+        required: false,
+        description: 'Broadcast during seed.',
+        default: false,
+      },
       broadcast_interval: {
         required: false,
         description: 'The interval for broadcasting next layer, in minutes. 0 to disable.',
@@ -78,7 +83,15 @@ export default class NextLayer extends BasePlugin {
         units.push(`${parts[1]} ${parts[3]}`);
       }
       const text = `Next layer is ${this.server.nextLayer.name}\n${units[0]} vs ${units[1]}`;
-      if (!info || info.chat === 'ChatAdmin')
+      if (!info) {
+        if (this.options.on_seed || !this.server.currentLayer.name.includes('Seed')) {
+          this.server.rcon.broadcast(text);
+        }
+        else {
+          this.verbose(1, "No broadcast during seed.");
+        }
+      }
+      else if (info.chat === 'ChatAdmin')
         this.server.rcon.broadcast(text);
       else
         this.server.rcon.warn(info.player.eosID, text);

@@ -120,7 +120,6 @@ export default class VehicleClaims extends BasePlugin {
   constructor(server, options, connectors) {
     super(server, options, connectors);
     this.enabled = options.enabled;
-    this.disband = true;
     this.thiefs = {};
     this.onNewGame = this.onNewGame.bind(this);
     this.onSquadCreated = this.onSquadCreated.bind(this);
@@ -155,7 +154,7 @@ export default class VehicleClaims extends BasePlugin {
 
     let foundVic = null;
     if (info.message && this.isAdmin(info.player.steamID)) {
-      foundVic = this.getVicFromName(info.message, info.player);
+      foundVic = this.getVicFromName(info.message, info.player, false);
       if (!foundVic) {
         this.server.rcon.warn(info.player.eosID, `No vehicle matches "${info.message}".`);
         return;
@@ -236,7 +235,7 @@ export default class VehicleClaims extends BasePlugin {
     return name.toUpperCase().replaceAll(/[- .]/g, '');
   }
 
-  getVicFromName(name, player) {
+  getVicFromName(name, player, disband) {
     const squadName = name;
     const teamIndex = player.teamID - 1;
     const team = this.teams[teamIndex];
@@ -278,7 +277,7 @@ export default class VehicleClaims extends BasePlugin {
                                 + squadName
                                 + ' claims multiple vehicles.'
                                 + '\nBe more specific!');
-          if (this.disband)
+          if (disband)
             this.server.rcon.disbandSquad(player.teamID, player.squadID);
         }
       }
@@ -408,7 +407,7 @@ export default class VehicleClaims extends BasePlugin {
 
     team.squads[info.squadID] = info.squadName;
 
-    const vic = this.getVicFromName(info.squadName, info.player);
+    const vic = this.getVicFromName(info.squadName, info.player, true);
     if (vic) {
       if (Object.keys(vic.claimedBy).length < vic.count) {
         vic.claimedBy[info.squadID] = true;
@@ -422,8 +421,7 @@ export default class VehicleClaims extends BasePlugin {
                               vic.fullName
                               + ' is already claimed by squad '
                               + Object.keys(vic.claimedBy).join(' & ') + '.');
-        if (this.disband)
-          this.server.rcon.disbandSquad(info.player.teamID, info.squadID);
+        this.server.rcon.disbandSquad(info.player.teamID, info.squadID);
       }
     }
     else {

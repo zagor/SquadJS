@@ -11,7 +11,7 @@ const claimableVehicles = [
   'M1126', 'M1128', 'M2A3', 'M7A3',
   'ZBL08', 'ZBD04', 'ZBD05', 'ZTD05',
   'BMP1', 'BMP2', 'BMP3', 'BMD1', 'BMD4',
-  'BM21', 'MTLBZU23', 'MTLBM6MB',
+  'BM21', 'MTLBM6MB',
   'FV107', 'FV432RWS', 'FV510UA', 'FV510', 'SPRUT',
 ].concat(TANKS).concat(HELIS);
 
@@ -51,7 +51,6 @@ const vehicleAliases = {
   'TYPE99': 'ZTZ99',
   'MTLBM': 'MTLBM6MB',
   'MTLB30MM': 'MTLBM6MB',
-  'MTLBZU': 'MTLBZU23',
   'MGS': 'M1128',
   'CAS': 'LOACHCAS'
 };

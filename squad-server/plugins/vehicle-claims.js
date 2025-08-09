@@ -51,7 +51,7 @@ const vehicleAliases = {
   'TYPE99': 'ZTZ99',
   'MTLBM': 'MTLBM6MB',
   'MTLB30MM': 'MTLBM6MB',
-  'MTLBZU': 'MTZLBZU23',
+  'MTLBZU': 'MTLBZU23',
   'MGS': 'M1128',
   'CAS': 'LOACHCAS'
 };

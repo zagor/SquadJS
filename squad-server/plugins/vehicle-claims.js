@@ -140,6 +140,12 @@ export default class VehicleClaims extends BasePlugin {
     await this.onFirstStart();
   }
 
+  isAdmin(playerID) {
+    if (playerID in this.server.admins && this.server.admins[playerID].chat) {
+      return true;
+    }
+  }
+
   async onRescue(info) {
     if (info.chat !== 'ChatSquad') {
       this.server.rcon.warn(info.player.eosID,
@@ -161,6 +167,14 @@ export default class VehicleClaims extends BasePlugin {
       if (Object.keys(vic.claimedBy).includes(squadID)) {
         foundVic = vic;
         break;
+      }
+    }
+
+    if (!foundVic && info.message && this.isAdmin(info.player.steamID)) {
+      foundVic = this.getVicFromName(info.message, info.player);
+      if (!foundVic) {
+        this.server.rcon.warn(info.player.eosID, `No vehicle matches "${info.message}".`);
+        return;
       }
     }
 
@@ -223,8 +237,9 @@ export default class VehicleClaims extends BasePlugin {
     return name.toUpperCase().replaceAll(/[- .]/g, '');
   }
 
-  getVicFromSquadName(info, teamIndex) {
-    const squadName = info.squadName;
+  getVicFromName(name, player) {
+    const squadName = name;
+    const teamIndex = player.teamID - 1;
     const team = this.teams[teamIndex];
     const strippedSquadName = this.stripVicName(squadName);
 
@@ -259,13 +274,13 @@ export default class VehicleClaims extends BasePlugin {
         if (foundCount === 1)
           return team.vehicles[foundName];
         else if (foundCount > 1) {
-          this.server.rcon.warn(info.player.eosID,
+          this.server.rcon.warn(player.eosID,
                                 'Squad name '
                                 + squadName
                                 + ' claims multiple vehicles.'
                                 + '\nBe more specific!');
           if (this.disband)
-            this.server.rcon.disbandSquad(info.player.teamID, info.squadID);
+            this.server.rcon.disbandSquad(player.teamID, player.squadID);
         }
       }
     }
@@ -394,7 +409,7 @@ export default class VehicleClaims extends BasePlugin {
 
     team.squads[info.squadID] = info.squadName;
 
-    const vic = this.getVicFromSquadName(info, teamIndex);
+    const vic = this.getVicFromName(info.squadName, info.player);
     if (vic) {
       if (Object.keys(vic.claimedBy).length < vic.count) {
         vic.claimedBy[info.squadID] = true;

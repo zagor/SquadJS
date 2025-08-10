@@ -191,11 +191,15 @@ export default class Balance extends BasePlugin {
 
   async onRoundEnded(info) {
     if (!this.markedPlayers.length) return;
+    this.timeout = setTimeout(this.announceBalance, 2000, this);
     this.timeout = setTimeout(this.movePlayers, this.options.delay * 1000, this);
   }
 
-  async movePlayers(obj) {
+  announceBalance(obj) {
     obj.server.rcon.broadcast('Teams are being balanced.');
+  }
+
+  movePlayers(obj) {
     for (const player of obj.markedPlayers) {
       obj.server.rcon.switchTeam(player.eosID);
     }

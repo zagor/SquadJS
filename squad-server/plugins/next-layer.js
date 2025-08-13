@@ -51,6 +51,8 @@ export default class NextLayer extends BasePlugin {
   }
 
   startMidGameTimer() {
+    if (!this.options.on_seed && this.server.currentLayer.name.includes('Seed'))
+      return;
     const now = new Date();
     let timer = this.server.matchStartTime;
     while (timer < now) {

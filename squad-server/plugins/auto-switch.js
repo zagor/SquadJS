@@ -40,11 +40,10 @@ export default class AutoSwitch extends BasePlugin {
   }
 
   onPlayerPrefix(info) {
-    this.verbose(2, `prefix:${info.player.prefix} suffix:${info.player.suffix}`);
     const prefix = info.player.prefix.replace(/\W/g, '').toLowerCase();
-
-    if (!info.player.prefix.length)
+    if (!prefix.length)
       return;
+    this.verbose(2, `prefix:${info.player.prefix} suffix:${info.player.suffix}`);
     if (this.opt_outs.includes(prefix)) {
       this.verbose(1, "Prefix", info.player.prefix, "is opt-out.");
       return;

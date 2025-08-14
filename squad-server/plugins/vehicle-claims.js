@@ -139,6 +139,15 @@ export default class VehicleClaims extends BasePlugin {
     await this.onFirstStart();
   }
 
+  async unmount() {
+    this.server.removeEventListener('NEW_GAME', this.onNewGame);
+    this.server.removeEventListener('SQUAD_CREATED', this.onSquadCreated);
+    this.server.removeEventListener('PLAYER_POSSESS', this.onPlayerPossess);
+    this.server.removeEventListener('PLAYER_UNPOSSESS', this.onPlayerUnPossess);
+    this.server.removeEventListener(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
+    this.server.removeEventListener(`CHAT_COMMAND:${this.options.rescue_command}`, this.onRescue);
+  }
+
   isAdmin(playerID) {
     if (playerID in this.server.admins && this.server.admins[playerID].chat) {
       return true;

@@ -35,8 +35,12 @@ export default class AutoSwitch extends BasePlugin {
     }
   }
 
-  mount() {
+  async mount() {
     this.server.on('PLAYER_PREFIX', this.onPlayerPrefix);
+  }
+
+  async unmount() {
+    this.server.removeEventListener(`PLAYER_PREFIX`, this.onPlayerPrefix);
   }
 
   onPlayerPrefix(info) {

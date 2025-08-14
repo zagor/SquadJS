@@ -19,6 +19,7 @@ import { playerIdNames } from 'core/id-parser';
 export default class SquadServer extends EventEmitter {
   constructor(options = {}) {
     super();
+    this.setMaxListeners(50); // many plugins results in many listeners
 
     for (const option of ['host'])
       if (!(option in options)) throw new Error(`${option} must be specified.`);

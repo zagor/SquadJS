@@ -1,0 +1,8 @@
+[Unit]
+Description=Restart SquadJS daily
+
+[Timer]
+OnCalendar=06:10
+
+[Install]
+WantedBy=timers.target

@@ -455,7 +455,7 @@ export default class VehicleClaims extends BasePlugin {
 
   async onPlayerPossess(info) {
     try {
-      this._onPlayerPossess(info);
+      await this._onPlayerPossess(info);
     }
     catch (err) {
       this.verbose(1, "Caught error " + err);
@@ -464,6 +464,10 @@ export default class VehicleClaims extends BasePlugin {
 
   async _onPlayerPossess(info) {
     if (!this.enabled) return;
+    if (!info.player) {
+      this.verbose(1, "*** Error: No player in possess event!", info);
+      return;
+    }
     const vic = this.findVicByClass(info.player.teamID, info.possessClassname);
     if (vic && !(info.player.squadID in vic.claimedBy)) {
       if (vic.rescueTimer) {
@@ -493,7 +497,7 @@ export default class VehicleClaims extends BasePlugin {
 
   async onPlayerUnPossess(info) {
     try {
-      this._onPlayerUnPossess(info);
+      await this._onPlayerUnPossess(info);
     }
     catch (err) {
       this.verbose(1, "Caught error " + err);

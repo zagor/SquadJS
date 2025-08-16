@@ -447,19 +447,34 @@ export default class VehicleClaims extends BasePlugin {
     return undefined;
   }
 
-  killThief(obj, eosID) {
-    delete obj.thiefs[eosID];
-    obj.server.rcon.switchTeam(eosID);
-    obj.server.rcon.switchTeam(eosID);
+  findClaimByPlayer(player) {
+    const team = this.teams[player.teamID - 1]
+    for (const vic of Object.values(team.vehicles)) {
+      for (const sqid of Object.values(vic.claimedBy)) {
+        if (sqid == player.squadID)
+          return vic;
+      }
+    }
+    return undefined;
   }
 
-  warnThief(obj, eosID) {
+  killThief(obj, player, vic) {
+    delete obj.thiefs[player.eosID];
+    obj.server.rcon.switchTeam(player.eosID);
+    obj.server.rcon.switchTeam(player.eosID);
+    obj.verbose(1, player.name, 'in squad', player.squadID,
+                'was killed over', vic.fullName);
+  }
+
+  warnThief(obj, player, vic) {
     const delay = obj.options.thief_kill_delay;
-    obj.server.rcon.warn(eosID,
+    obj.server.rcon.warn(player.eosID,
                          'Claim violation!\n\n' +
                          'Exit the vehicle or be killed.\n' +
                          `You have ${delay} seconds.`);
-    obj.thiefs[eosID] = setTimeout(obj.killThief, delay * 1000, obj, eosID);
+    obj.verbose(1, player.name, 'in squad', player.squadID,
+                'got second warning over', vic.fullName);
+    obj.thiefs[player.eosID] = setTimeout(obj.killThief, delay * 1000, obj, player, vic);
   }
 
   async onPlayerPossess(info) {
@@ -488,19 +503,26 @@ export default class VehicleClaims extends BasePlugin {
       }
 
       let text = '';
-      if (Object.keys(vic.claimedBy).length)
-        text = `Squad ${Object.keys(vic.claimedBy).join(' & ')} has the claim for this vehicle.\n`;
-      else
-        text = 'This vehicle must be claimed in your squad name.\n';
-
-      this.server.rcon.warn(info.player.eosID,
-                            'Claim violation!\n\n' +
-                            text +
-                            'Exit the vehicle immediately.');
+      const claimedVic = this.findClaimByPlayer(info.player);
+      if (claimedVic) {
+        this.server.rcon.warn(info.player.eosID,
+                              'Wrong vehicle!\n\n' +
+                              `You have claim for ${claimedVic.fullName}.\n` +
+                              `This is a ${vic.fullName}.\n` +
+                              'Exit the vehicle immediately.');
+      }
+      else {
+        this.server.rcon.warn(info.player.eosID,
+                              'Claim violation!\n\n' +
+                              'This vehicle must be claimed in your squad name.\n' +
+                              'Exit the vehicle immediately.');
+      }
+      this.verbose(1, info.player.name, 'in squad', info.player.squadID,
+                   'got first warning over', vic.fullName);
       this.thiefs[info.player.eosID] =
         setTimeout(this.warnThief,
                    this.options.thief_second_warning_delay * 1000,
-                   this, info.player.eosID);
+                   this, info.player, vic);
     }
   }
 

@@ -55,7 +55,13 @@ const vehicleAliases = {
   'CAS': 'LOACHCAS'
 };
 
-/* still unhandled: Technical UB-32, M1126 CROWS M2 vs M240 */
+/* still unhandled: M1126 CROWS M2 vs M240 */
+
+const allowedLockWithoutClaim = [
+  /mortar/i,
+  /ub.?32/i,
+  /m.?121/i
+];
 
 class Vehicle {
   constructor(name, fullName, count, classNames) {
@@ -99,6 +105,26 @@ export default class VehicleClaims extends BasePlugin {
         description: 'Time in seconds from second warning to kill.',
         default: 10
       },
+      locked_squad_min_size: {
+        required: false,
+        description: 'Minimum allowed size of an infantry squad to be locked. 0 to disable.',
+        default: 4
+      },
+      locked_squad_warn_delay: {
+        required: false,
+        description: 'Time until warning for locked squad below min size.',
+        default: 60
+      },
+      locked_squad_warn_count: {
+        required: false,
+        description: 'Number of warnings before disband.',
+        default: 2
+      },
+      locked_squad_disband_delay: {
+        required: false,
+        description: 'Time until disband after warning for locked squad below min size.',
+        default: 30
+      },
       rescue_command: {
         required: false,
         description: 'Rescue chat command.',
@@ -109,32 +135,42 @@ export default class VehicleClaims extends BasePlugin {
         description: 'Rescue exception timeout, in seconds.',
         default: 300
       },
-      command: {
+      claims_command: {
         required: false,
-        description: 'Admin chat command.',
+        description: 'Claims enforcement enable/disable admin chat command.',
         default: "claims"
+      },
+      locks_command: {
+        required: false,
+        description: 'Lock checking enable/disable admin chat command.',
+        default: "locks"
       },
     }
   }
 
   constructor(server, options, connectors) {
     super(server, options, connectors);
-    this.enabled = options.enabled;
+    this.claimsEnabled = options.enabled;
+    this.locksEnabled = options.enabled;
     this.thiefs = {};
     this.onNewGame = this.onNewGame.bind(this);
     this.onSquadCreated = this.onSquadCreated.bind(this);
+    this.onSquadsUpdated = this.onSquadsUpdated.bind(this);
     this.onPlayerPossess = this.onPlayerPossess.bind(this);
     this.onPlayerUnPossess = this.onPlayerUnPossess.bind(this);
-    this.onChatCommand = this.onChatCommand.bind(this);
+    this.onClaimsCommand = this.onClaimsCommand.bind(this);
+    this.onLocksCommand = this.onLocksCommand.bind(this);
     this.onRescue = this.onRescue.bind(this);
   }
 
   async mount() {
     this.server.on('NEW_GAME', this.onNewGame);
     this.server.on('SQUAD_CREATED', this.onSquadCreated);
+    this.server.on('UPDATED_SQUAD_INFORMATION', this.onSquadsUpdated);
     this.server.on('PLAYER_POSSESS', this.onPlayerPossess);
     this.server.on('PLAYER_UNPOSSESS', this.onPlayerUnPossess);
-    this.server.on(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
+    this.server.on(`CHAT_COMMAND:${this.options.claims_command}`, this.onClaimsCommand);
+    this.server.on(`CHAT_COMMAND:${this.options.locks_command}`, this.onLocksCommand);
     this.server.on(`CHAT_COMMAND:${this.options.rescue_command}`, this.onRescue);
     await this.onNewGame();
   }
@@ -142,9 +178,11 @@ export default class VehicleClaims extends BasePlugin {
   async unmount() {
     this.server.removeEventListener('NEW_GAME', this.onNewGame);
     this.server.removeEventListener('SQUAD_CREATED', this.onSquadCreated);
+    this.server.removeEventListener('UPDATED_SQUAD_INFORMATION', this.onSquadsUpdated);
     this.server.removeEventListener('PLAYER_POSSESS', this.onPlayerPossess);
     this.server.removeEventListener('PLAYER_UNPOSSESS', this.onPlayerUnPossess);
-    this.server.removeEventListener(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
+    this.server.removeEventListener(`CHAT_COMMAND:${this.options.claims_command}`, this.onClaimsCommand);
+    this.server.removeEventListener(`CHAT_COMMAND:${this.options.locks_command}`, this.onLocksCommand);
     this.server.removeEventListener(`CHAT_COMMAND:${this.options.rescue_command}`, this.onRescue);
   }
 
@@ -212,30 +250,58 @@ export default class VehicleClaims extends BasePlugin {
     }
   }
 
-  async onChatCommand(info) {
+  async onClaimsCommand(info) {
     if (info.chat !== 'ChatAdmin')
       return;
 
     const admin = info.player;
     const words = info.message.toLowerCase().split(' ');
 
-    if (words[0] === 'enable' && !this.enabled) {
-      this.enabled = true;
+    if (words[0] === 'enable' && !this.claimsEnabled) {
+      this.claimsEnabled = true;
       const msg = 'Automatic claim enforcement enabled.';
       this.server.rcon.warn(admin.eosID, msg);
       this.server.rcon.broadcast(msg);
     }
-    else if (words[0] === 'disable' && this.enabled) {
-      this.enabled = false;
+    else if (words[0] === 'disable' && this.claimsEnabled) {
+      this.claimsEnabled = false;
       const msg = 'Automatic claim enforcement disabled.';
       this.server.rcon.warn(admin.eosID, msg);
       this.server.rcon.broadcast(msg);
     }
     else {
       const msg =
-            `Claim enforcement is ${this.enabled ? "en" : "dis"}abled.\n`
-            + `!${this.options.command} enable\n`
-            + `!${this.options.command} disable`;
+            `Claim enforcement is ${this.claimsEnabled ? "en" : "dis"}abled.\n`
+            + `!${this.options.claims_command} enable\n`
+            + `!${this.options.claims_command} disable`;
+      this.server.rcon.warn(admin.eosID, msg);
+    }
+  }
+
+  async onLocksCommand(info) {
+    if (info.chat !== 'ChatAdmin')
+      return;
+
+    const admin = info.player;
+    const words = info.message.toLowerCase().split(' ');
+
+    if (words[0] === 'enable' && !this.locksEnabled) {
+      this.locksEnabled = true;
+      const msg = 'Automatic squad locking enforcement enabled.';
+      this.server.rcon.warn(admin.eosID, msg);
+      this.server.rcon.broadcast(msg);
+    }
+    else if (words[0] === 'disable' && this.locksEnabled) {
+      this.locksEnabled = false;
+      const msg = 'Automatic squad locking enforcement disabled.';
+      this.server.rcon.warn(admin.eosID, msg);
+      this.server.rcon.broadcast(msg);
+    }
+    else {
+      const msg =
+            `Squad locking enforcement is ${this.locksEnabled ? "en" : "dis"}abled.\n`
+            + `!${this.options.locks_command} enable\n`
+            + `!${this.options.locks_command} disable`;
       this.server.rcon.warn(admin.eosID, msg);
     }
   }
@@ -353,7 +419,7 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async onNewGame() {
-    if (!this.enabled) return;
+    if (!this.claimsEnabled) return;
     try {
       this.initLayer();
       await this.server.updateSquadList();
@@ -366,9 +432,7 @@ export default class VehicleClaims extends BasePlugin {
     }
   }
 
-  async pruneSquadClaims(team, squadNum) {
-    if (Object.keys(team.squads).length === 0) return;
-    await this.server.updateSquadList();
+  pruneSquadClaims(team, squadNum) {
     const teamSquads = this.server.squads.filter((f) => f.teamID == team.index + 1);
     let existingSquads = [];
     for (const squad of teamSquads) {
@@ -394,7 +458,8 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async _onSquadCreated(info) {
-    if (!this.enabled) return;
+    if (!this.claimsEnabled) return;
+    await this.server.updateSquadList();
 
     const teamIndex = info.player.teamID - 1;
     const team = this.teams[teamIndex];
@@ -403,9 +468,20 @@ export default class VehicleClaims extends BasePlugin {
     this.verbose(1, '%s: New squad %d: %s',
                  faction, info.squadID, info.squadName);
 
-    await this.pruneSquadClaims(team, info.squadID);
-
-    team.squads[info.squadID] = info.squadName;
+    this.pruneSquadClaims(team, info.squadID);
+    const squadList = this.server.squads.filter(
+      (s) => s.teamID == info.player.teamID && s.squadID == info.player.squadID);
+    if (!squadList) {
+      this.verbose(1, "*** Error: No squad matching player!");
+      return;
+    }
+    team.squads[info.squadID] = {
+      name: info.squadName,
+      teamID : info.player.teamID,
+      squadID : info.squadID,
+      lockTime: (squadList[0].locked == 'True') ?
+        new Date().getTime() : undefined
+    };
 
     const vic = this.getVicFromName(info.squadName, info.player, true);
     if (vic) {
@@ -438,11 +514,11 @@ export default class VehicleClaims extends BasePlugin {
     return undefined;
   }
 
-  findClaimByPlayer(player) {
-    const team = this.teams[player.teamID - 1]
+  findClaim(teamID, squadID) {
+    const team = this.teams[teamID - 1]
     for (const vic of Object.values(team.vehicles)) {
       for (const sqid of Object.values(vic.claimedBy)) {
-        if (sqid == player.squadID)
+        if (sqid == squadID)
           return vic;
       }
     }
@@ -478,7 +554,7 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async _onPlayerPossess(info) {
-    if (!this.enabled) return;
+    if (!this.claimsEnabled) return;
     if (!info.player) {
       this.verbose(1, "*** Error: No player in possess event!", info);
       return;
@@ -494,7 +570,7 @@ export default class VehicleClaims extends BasePlugin {
       }
 
       let text = '';
-      const claimedVic = this.findClaimByPlayer(info.player);
+      const claimedVic = this.findClaim(info.player.teamID, info.played.squadID);
       if (claimedVic) {
         this.server.rcon.warn(info.player.eosID,
                               'Wrong vehicle!\n\n' +
@@ -528,11 +604,92 @@ export default class VehicleClaims extends BasePlugin {
 
 
   async _onPlayerUnPossess(info) {
-    if (!this.enabled) return;
+    if (!this.claimsEnabled) return;
     const vic = this.findVicByClass(info.player.teamID, info.possessClassname);
     if (vic && info.player.eosID in this.thiefs) {
       clearTimeout(this.thiefs[info.player.eosID]);
       delete this.thiefs[info.player.eosID];
+    }
+  }
+
+  allowedLockName(name) {
+    for (const regex of allowedLockWithoutClaim) {
+      if (name.match(regex))
+        return true;
+    }
+    return false;
+  }
+
+  async onSquadsUpdated() {
+    if (!this.locksEnabled)
+      return;
+
+    // check for squad lock violations
+    if (this.options.locked_squad_min_size == 0)
+      return;
+
+    const squadLookup = {};
+    for (const s of this.server.squads)
+      squadLookup[`${s.teamID}:${s.squadID}`] = s;
+
+    const now = new Date().getTime();
+    for (const team of this.teams) {
+      for (const squad of Object.values(team.squads)) {
+        const s = squadLookup[`${squad.teamID}:${squad.squadID}`];
+        if (!s) {
+          this.verbose(1, `*** error: No squad found for ${squad.teamID}:${squad.squadID}`);
+          delete this.teams[squad.teamID-1].squads[squad.squadID];
+          continue;
+        }
+        if (squad.size >= this.options.locked_squad_min_size ||
+            this.findClaim(squad.teamID, squad.squadID) ||
+            this.allowedLockName(squad.name))
+          continue;
+
+        const faction = this.server.currentTeams[squad.teamID - 1].faction;
+        const prefix = `${faction} squad ${squad.squadID} "${squad.name}"`;
+
+        if (s.locked == 'True') {
+          if (!squad.lockTime)
+            squad.lockTime = new Date().getTime();
+          if (squad.warnTime) {
+            if ((now - squad.warnTime) > this.options.locked_squad_disband_delay * 1000) {
+              await this.server.rcon.warn(s.creatorEOSID,
+                                          "You were disbanded for violating squad locking rule §3.3.");
+              await this.server.rcon.disbandSquad(squad.teamID, squad.squadID);
+              await this.server.rcon.broadcast(`${prefix} was disbanded for violating squad locking rule §3.3.`);
+              this.verbose(1, `${prefix} was disbanded for locking.`);
+              delete team.squads[squad.squadID];
+            }
+          }
+          else if (now - squad.lockTime > this.options.locked_squad_warn_delay * 1000) {
+            squad.warnCount = squad.warnCount ? squad.warnCount + 1 : 1;
+            if (squad.warnCount >= this.options.locked_squad_warn_count)
+              squad.warnTime = now;
+            else
+              squad.lockTime = now;
+            const seconds = this.options.locked_squad_disband_delay +
+                  (this.options.locked_squad_warn_count - squad.warnCount) *
+                  this.options.locked_squad_warn_delay;
+            const timeout = `${Math.floor(seconds / 60)}m${seconds % 60}s`;
+            await this.server.rcon.warn(s.creatorEOSID,
+                                        "§3.3 Squad locking violation\n\n" +
+                                        `You can't lock your squad with less than ${this.options.locked_squad_min_size} people. ` +
+                                        `Unlock or be disbanded in ${timeout}.`);
+            this.verbose(1, `${prefix} was warned for locking.`);
+          }
+          else {
+            const secondsLeft = Math.floor(this.options.locked_squad_warn_delay - ((now - squad.lockTime) / 1000));
+            this.verbose(2, `${prefix} is locked, but has ${secondsLeft} seconds left.`);
+          }
+        }
+        else {
+          if (squad.lockTime)
+            this.verbose(2, `${prefix} was locked but is now unlocked.`);
+          squad.lockTime = undefined;
+          squad.warnTime = undefined;
+        }
+      }
     }
   }
 }

@@ -512,9 +512,14 @@ export default class VehicleClaims extends BasePlugin {
                               'Exit the vehicle immediately.');
       }
       else {
+        if (Object.keys(vic.claimedBy).length)
+          text = `Squad ${Object.keys(vic.claimedBy).join(' & ')} has the claim for this vehicle.\n`;
+        else
+          text = 'This vehicle must be claimed in your squad name.\n';
+
         this.server.rcon.warn(info.player.eosID,
                               'Claim violation!\n\n' +
-                              'This vehicle must be claimed in your squad name.\n' +
+                              text +
                               'Exit the vehicle immediately.');
       }
       this.verbose(1, info.player.name, 'in squad', info.player.squadID,

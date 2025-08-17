@@ -86,6 +86,14 @@ The command only works in squad chat. This is to keep it somewhat
 confidential and reduce the risk of abuse.
 
 
+## Squad size locking rule enforcement
+
+The plugin also enforces a rule that says you have to have at least X
+people in your squad to be allowed to lock the squad.
+The exception is vehicle squads with proper claim,
+and squads named after the UB-32 or M121 vehicles.
+
+
 ## Questions
 
 Q: What about transporting other squads in a claimed vehicle? Will they be killed when entering?

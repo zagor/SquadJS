@@ -503,6 +503,7 @@ export default class SquadServer extends EventEmitter {
     Logger.verbose('SquadServer', 1, `Updated squad list.`);
 
     this.updateSquadListTimeout = setTimeout(this.updateSquadList, this.updateSquadListInterval);
+    this.emit('UPDATED_SQUAD_INFORMATION');
   }
 
   async updateLayerInformation() {

@@ -136,7 +136,7 @@ export default class VehicleClaims extends BasePlugin {
     this.server.on('PLAYER_UNPOSSESS', this.onPlayerUnPossess);
     this.server.on(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
     this.server.on(`CHAT_COMMAND:${this.options.rescue_command}`, this.onRescue);
-    await this.onFirstStart();
+    await this.onNewGame();
   }
 
   async unmount() {
@@ -352,23 +352,14 @@ export default class VehicleClaims extends BasePlugin {
     }
   }
 
-  async onFirstStart() {
+  async onNewGame() {
+    if (!this.enabled) return;
     try {
       this.initLayer();
       await this.server.updateSquadList();
       await this.server.updatePlayerList();
       if (this.server.squads.length)
         await this.createInitialSquads();
-    }
-    catch(err) {
-      this.verbose(1, "Caught error " + err);
-    }
-  }
-
-  async onNewGame() {
-    if (!this.enabled) return;
-    try {
-      this.initLayer();
     }
     catch(err) {
       this.verbose(1, "Caught error " + err);

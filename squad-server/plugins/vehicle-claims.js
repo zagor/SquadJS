@@ -624,6 +624,9 @@ export default class VehicleClaims extends BasePlugin {
     if (!this.locksEnabled)
       return;
 
+    if (this.server.currentLayer.name.toLowerCase().includes('seed'))
+      return;
+
     // check for squad lock violations
     if (this.options.locked_squad_min_size == 0)
       return;

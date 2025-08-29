@@ -58,7 +58,6 @@ const vehicleAliases = {
 /* still unhandled: M1126 CROWS M2 vs M240 */
 
 const allowedLockWithoutClaim = [
-  /mortar/i,
   /ub.?32/i,
   /m.?121/i
 ];
@@ -620,6 +619,10 @@ export default class VehicleClaims extends BasePlugin {
     return false;
   }
 
+  isAdminSquad(squad) {
+    return squad.size == 1 && this.isAdmin(squad.creatorSteamID);
+  }
+
   async onSquadsUpdated() {
     if (!this.locksEnabled)
       return;
@@ -646,6 +649,7 @@ export default class VehicleClaims extends BasePlugin {
         }
         if (squad.size >= this.options.locked_squad_min_size ||
             this.findClaim(squad.teamID, squad.squadID) ||
+            this.isAdminSquad(s) ||
             this.allowedLockName(squad.name))
           continue;
 

@@ -570,7 +570,7 @@ export default class VehicleClaims extends BasePlugin {
       }
 
       let text = '';
-      const claimedVic = this.findClaim(info.player.teamID, info.played.squadID);
+      const claimedVic = this.findClaim(info.player.teamID, info.player.squadID);
       if (claimedVic) {
         this.server.rcon.warn(info.player.eosID,
                               'Wrong vehicle!\n\n' +

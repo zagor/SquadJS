@@ -47,8 +47,9 @@ export default class GoToSeed extends BasePlugin {
     if (this.server.currentLayer.name.toLowerCase().includes('seed'))
       return;
 
-    if (this.server.players.length < this.options.player_limit) {
-      this.verbose(1, `Only ${this.server.players.length} players left, going to seed.`);
+    const players = this.server.players.length;
+    if (players > 0 && players < this.options.player_limit) {
+      this.verbose(1, `Only ${this.server.players.length} players, going to seed.`);
       await this.server.rcon.execute(`AdminChangeLayer ${this.options.seed_layer}`);
     }
   }

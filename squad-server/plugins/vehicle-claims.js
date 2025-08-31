@@ -516,10 +516,8 @@ export default class VehicleClaims extends BasePlugin {
   findClaim(teamID, squadID) {
     const team = this.teams[teamID - 1]
     for (const vic of Object.values(team.vehicles)) {
-      for (const sqid of Object.values(vic.claimedBy)) {
-        if (sqid == squadID)
-          return vic;
-      }
+      if (Object.keys(vic.claimedBy).includes(squadID.toString()))
+        return vic;
     }
     return undefined;
   }

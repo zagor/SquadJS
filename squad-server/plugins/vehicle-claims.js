@@ -464,7 +464,7 @@ export default class VehicleClaims extends BasePlugin {
     const team = this.teams[teamIndex];
     const faction = this.server.currentTeams[teamIndex].faction;
 
-    this.verbose(1, '%s: New squad %d: %s',
+    this.verbose(3, '%s: New squad %d: %s',
                  faction, info.squadID, info.squadName);
 
     this.pruneSquadClaims(team, info.squadID);
@@ -500,7 +500,7 @@ export default class VehicleClaims extends BasePlugin {
       }
     }
     else {
-      this.verbose(2, '%s: No vic matching %s', faction, info.squadName);
+      this.verbose(3, '%s: No vic matching %s', faction, info.squadName);
     }
   }
 
@@ -599,7 +599,6 @@ export default class VehicleClaims extends BasePlugin {
     }
   }
 
-
   async _onPlayerUnPossess(info) {
     if (!this.claimsEnabled) return;
     const vic = this.findVicByClass(info.player.teamID, info.possessClassname);
@@ -622,13 +621,13 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async onSquadsUpdated() {
+    // check for squad lock violations
     if (!this.locksEnabled)
       return;
 
     if (this.server.currentLayer.name.toLowerCase().includes('seed'))
       return;
 
-    // check for squad lock violations
     if (this.options.locked_squad_min_size == 0)
       return;
 
@@ -645,54 +644,65 @@ export default class VehicleClaims extends BasePlugin {
           delete this.teams[squad.teamID-1].squads[squad.squadID];
           continue;
         }
-        if (squad.size >= this.options.locked_squad_min_size ||
-            this.findClaim(squad.teamID, squad.squadID) ||
-            this.isAdminSquad(s) ||
-            this.allowedLockName(squad.name))
-          continue;
-
         const faction = this.server.currentTeams[squad.teamID - 1].faction;
         const prefix = `${faction} squad ${squad.squadID} "${squad.name}"`;
 
-        if (s.locked == 'True') {
-          if (!squad.lockTime)
-            squad.lockTime = new Date().getTime();
-          if (squad.warnTime) {
-            if ((now - squad.warnTime) > this.options.locked_squad_disband_delay * 1000) {
-              await this.server.rcon.warn(s.creatorEOSID,
-                                          "You were disbanded for violating squad locking rule §3.3.");
-              await this.server.rcon.disbandSquad(squad.teamID, squad.squadID);
-              await this.server.rcon.broadcast(`${prefix} was disbanded for violating squad locking rule §3.3.`);
-              this.verbose(1, `${prefix} was disbanded for locking.`);
-              delete team.squads[squad.squadID];
-            }
-          }
-          else if (now - squad.lockTime > this.options.locked_squad_warn_delay * 1000) {
-            squad.warnCount = squad.warnCount ? squad.warnCount + 1 : 1;
-            if (squad.warnCount >= this.options.locked_squad_warn_count)
-              squad.warnTime = now;
-            else
-              squad.lockTime = now;
-            const seconds = this.options.locked_squad_disband_delay +
-                  (this.options.locked_squad_warn_count - squad.warnCount) *
-                  this.options.locked_squad_warn_delay;
-            const timeout = `${Math.floor(seconds / 60)}m${seconds % 60}s`;
-            await this.server.rcon.warn(s.creatorEOSID,
-                                        "§3.3 Squad locking violation\n\n" +
-                                        `You can't lock your squad with less than ${this.options.locked_squad_min_size} people. ` +
-                                        `Unlock or be disbanded in ${timeout}.`);
-            this.verbose(1, `${prefix} was warned for locking.`);
-          }
-          else {
-            const secondsLeft = Math.floor(this.options.locked_squad_warn_delay - ((now - squad.lockTime) / 1000));
-            this.verbose(2, `${prefix} is locked, but has ${secondsLeft} seconds left.`);
-          }
-        }
-        else {
+        if (s.locked != 'True') {
           if (squad.lockTime)
-            this.verbose(2, `${prefix} was locked but is now unlocked.`);
+            this.verbose(2, prefix, "was locked but is now unlocked");
           squad.lockTime = undefined;
           squad.warnTime = undefined;
+          continue;
+        }
+
+        if (s.size >= this.options.locked_squad_min_size) {
+          this.verbose(3, prefix, "is enough members to lock");
+          continue;
+        }
+        if (this.findClaim(s.teamID, s.squadID)) {
+          this.verbose(3, prefix, "has a vehicle claim, lock ok");
+          continue;
+        }
+        if (this.allowedLockName(s.squadName)) {
+          this.verbose(3, prefix, "has a lockable squad name");
+          continue;
+        }
+        if (this.isAdminSquad(s)) {
+          this.verbose(3, prefix, "is an admin squad, lock ok");
+          continue;
+        }
+
+        if (!squad.lockTime)
+          squad.lockTime = new Date().getTime();
+        if (squad.warnTime) {
+          if ((now - squad.warnTime) > this.options.locked_squad_disband_delay * 1000) {
+            await this.server.rcon.warn(s.creatorEOSID,
+                                        "You were disbanded for violating squad locking rule §3.3.");
+            await this.server.rcon.disbandSquad(squad.teamID, squad.squadID);
+            await this.server.rcon.broadcast(`${prefix} was disbanded for violating squad locking rule §3.3.`);
+            this.verbose(1, `${prefix} was disbanded for locking`);
+            delete team.squads[squad.squadID];
+          }
+        }
+        else if (now - squad.lockTime > this.options.locked_squad_warn_delay * 1000) {
+          squad.warnCount = squad.warnCount ? squad.warnCount + 1 : 1;
+          if (squad.warnCount >= this.options.locked_squad_warn_count)
+            squad.warnTime = now;
+          else
+            squad.lockTime = now;
+          const seconds = this.options.locked_squad_disband_delay +
+                (this.options.locked_squad_warn_count - squad.warnCount) *
+                this.options.locked_squad_warn_delay;
+          const timeout = `${Math.floor(seconds / 60)}m${seconds % 60}s`;
+          await this.server.rcon.warn(s.creatorEOSID,
+                                      "§3.3 Squad locking violation\n\n" +
+                                      `You can't lock your squad with less than ${this.options.locked_squad_min_size} players. ` +
+                                      `Unlock or be disbanded in ${timeout}.`);
+          this.verbose(1, `${prefix} received warning ${squad.warnCount} for locking`);
+        }
+        else {
+          const secondsLeft = Math.floor(this.options.locked_squad_warn_delay - ((now - squad.lockTime) / 1000));
+          this.verbose(2, `${prefix} is invalidly locked, but has ${secondsLeft} seconds left`);
         }
       }
     }

@@ -1,5 +1,4 @@
-import axios from 'axios';
-
+import { readFile } from 'node:fs/promises';
 import Logger from 'core/logger';
 
 import Layer from './layer.js';
@@ -20,14 +19,12 @@ class Layers {
     this.layers = [];
 
     Logger.verbose('Layers', 1, 'Pulling layers...');
-    const response = await axios.get(
-      'https://raw.githubusercontent.com/fantinodavide/SquadLayerList/main/layers.json'
-    );
-
-    for (const layer of response.data.Maps) {
+    const response = await readFile('layers.json', {encoding: 'utf8'});
+    const data = JSON.parse(response);
+    for (const layer of data.Maps) {
       this.layers.push(new Layer(layer));
     }
-    this.units = response.data.Units;
+    this.units = data.Units;
 
     Logger.verbose('Layers', 1, `Pulled ${this.layers.length} layers and ${Object.keys(this.units).length} units.`);
 

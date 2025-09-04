@@ -18,7 +18,11 @@ export default class Layer {
     };
     this.factions = data.factions;
     this.commander = data.commander;
-    this.tickets = [data.teamConfigs.team1.tickets,
-                    data.teamConfigs.team2.tickets];
+    if (Object.keys(data.teamConfigs).length)
+      this.tickets = [data.teamConfigs.team1.tickets,
+                      data.teamConfigs.team2.tickets];
+    else
+      // "Automation" maps have no team config, set 0 tickets
+      this.tickets = [0, 0];
   }
 }

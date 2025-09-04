@@ -2,26 +2,27 @@ import BasePlugin from './base-plugin.js';
 
 
 const TANKS = ['T62', 'T72', 'T90', 'M1A1', 'M1A2', 'M60', 'FV4034', 'LEOPARD', 'ZTZ99'];
-const HELIS = ['MI8', 'SA330', 'UH60', 'UH1', 'CH146', 'CH178', 'MRH90', 'Z8', 'RAVEN', 'LOACHSCOUT', 'LOACHCAS']
+const HELIS = ['MI8', 'SA330', 'UH60', 'UH1', 'CH146', 'CH146CAS', 'CH178', 'MRH90',
+               'Z8', 'RAVEN', 'LOACHSCOUT', 'LOACHCAS']
 
 const claimableVehicles = [
-  'BTR80', 'BTR82', 'ASLAV', 'LAV25', 'LAV6', 'LAVIII', 'COYOTE',
-  'PARSIII25MM', 'PARSIIIM2', 'PARSIIIMG3', 'PARSIIIMK19',
-  'ACV25MM', 'ACVM2', 'ACVMG3',
+  'BTR80', 'BTR82', 'ASLAV', 'LAV25', 'LAV6', 'LAVIIIM2', 'COYOTE',
+  'PARSIII25MM', 'PARSIIIM2',
+  'ACV25MM', 'ACVM2',
   'M1126', 'M1128', 'M2A3', 'M7A3',
   'ZBL08', 'ZBD04', 'ZBD05', 'ZTD05',
   'BMP1', 'BMP2', 'BMP3', 'BMD1', 'BMD4',
   'BM21', 'MTLBM6MB',
-  'FV107', 'FV432RWS', 'FV510UA', 'FV510', 'SPRUT',
+  'FV107', 'FV432L11A1', 'FV510UA', 'FV510', 'SPRUT',
 ].concat(TANKS).concat(HELIS);
 
 const multiNames = {
   'BTR': ['BTR80', 'BTR82'],
-  'LAV': ['ASLAV', 'LAV25', 'LAV6', 'LAVIII'],
+  'LAV': ['ASLAV', 'LAV25', 'LAV6', 'LAVIIIM2'],
   'BMP': ['BMP1', 'BMP2', 'BMP3'],
   'BMD': ['BMD1', 'BMD4'],
-  'ACV': ['ACV25MM', 'ACVM2', 'ACVMG3'],
-  'PARS': ['PARSIII25MM', 'PARSIIIM2', 'PARSIIIMG3', 'PARSIIIMK19'],
+  'ACV': ['ACV25MM', 'ACVM2'],
+  'PARS': ['PARSIII25MM', 'PARSIIIM2'],
   'MBT': TANKS,
   'TANK': TANKS,
   'HELI': HELIS,
@@ -30,19 +31,21 @@ const multiNames = {
   'BRADLEY': ['M2A3', 'M7A3'],
   'ABRAMS': ['M1A1', 'M1A2'],
   'ZBD': ['ZBD04', 'ZBD05'],
+  'CAS': ['LOACHCAS', 'CH146CAS'],
 };
 
 const vehicleAliases = {
-  'BULLDOGRWS': 'FV432RWS',
+  'BULLDOG': 'FV432L11A1',
+  'FV432': 'FV432L11A1',
   'SCIMITAR': 'FV107',
-  'LAV3': 'LAVIII',
+  'LAV3': 'LAVIIIM2',
   'ACVIFV': 'ACV25MM',
   'GRAD': 'BM21',
   'LEO': 'LEOPARD',
   'PARS25MM': 'PARSIII25MM',
   'PARSM2': 'PARSIIIM2',
-  'PARSMG3': 'PARSIIIMG3',
-  'PARSMK19': 'PARSIIIMK19',
+  'PARS325MM': 'PARSIII25MM',
+  'PARS3M2': 'PARSIIIM2',
   'ZBL': 'ZBL08',
   'ZTD': 'ZTD05',
   'ZTZ': 'ZTZ99',
@@ -52,10 +55,8 @@ const vehicleAliases = {
   'MTLBM': 'MTLBM6MB',
   'MTLB30MM': 'MTLBM6MB',
   'MGS': 'M1128',
-  'CAS': 'LOACHCAS'
+  'STRYKER': 'M1126',
 };
-
-/* still unhandled: M1126 CROWS M2 vs M240 */
 
 const allowedLockWithoutClaim = [
   /ub.?32/i,

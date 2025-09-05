@@ -62,6 +62,7 @@ class Layers {
           return faction.defaultUnit;
       }
     }
+    Logger.verbose('Layers', 1, `Failed to convert faction "${factionName}" on layer ${layer.name}, returned ${matches.length} matches`);
   }
 
   async getLayerById(layerId, factionOne, factionTwo) {

@@ -520,10 +520,16 @@ export default class SquadServer extends EventEmitter {
             await Layers.getLayerById(currentMap.layer,
                                       currentMap.factionOne,
                                       currentMap.factionTwo);
-      const [nextLayer, nextTeams] =
-            nextMapToBeVoted ? null : await Layers.getLayerById(nextMap.layer,
-                                                                nextMap.factionOne,
-                                                                nextMap.factionTwo);
+      let [nextLayer, nextTeams] = [undefined, undefined];
+      if (!nextMapToBeVoted) {
+        try {
+          [nextLayer, nextTeams] = await Layers.getLayerById(nextMap.layer,
+                                                             nextMap.factionOne,
+                                                             nextMap.factionTwo);
+        } catch (err) {
+          Logger.verbose('SquadServer', 1, 'Failed to get next layer information.', nextMap, err);
+        }
+      }
 
       if (this.layerHistory.length === 0) {
         this.layerHistory.unshift({ layer: currentLayer, time: Date.now() });

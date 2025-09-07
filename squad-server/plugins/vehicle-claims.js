@@ -1,8 +1,8 @@
 import BasePlugin from './base-plugin.js';
 
-
+// Note: Order matters! Put more specific (longer) names before shorter
 const TANKS = ['T62', 'T72', 'T90', 'M1A1', 'M1A2', 'M60', 'FV4034', 'LEOPARD', 'ZTZ99'];
-const HELIS = ['MI8', 'SA330', 'UH60', 'UH1', 'CH146', 'CH146CAS', 'CH178', 'MRH90',
+const HELIS = ['MI8', 'SA330', 'UH60', 'UH1', 'CH146CAS', 'CH146', 'CH178', 'MRH90',
                'Z8', 'RAVEN', 'LOACHSCOUT', 'LOACHCAS']
 
 const claimableVehicles = [

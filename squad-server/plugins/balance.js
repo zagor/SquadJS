@@ -30,6 +30,7 @@ export default class Balance extends BasePlugin {
     super(server, options, connectors);
 
     this.markedPlayers = [];
+    this.announced = false;
 
     this.onChatCommand = this.onChatCommand.bind(this);
     this.onRoundEnded = this.onRoundEnded.bind(this);
@@ -109,13 +110,19 @@ export default class Balance extends BasePlugin {
         matchedPlayers.push(player);
       }
     }
-    if (matchedPlayers.length === 1)
+    if (matchedPlayers.length === 1) {
+      if (!this.announced) {
+        this.server.rcon.broadcast('Teams will be balanced next round.');
+        this.announced = true;
+      }
       this.markPlayers(matchedPlayers, admin);
-    else
+    }
+    else {
       this.server.rcon.warn(
         admin.eosID,
         'Balancing error:\n' +
-        `Name "${name}" matched ${matchedPlayers.length} players.`);
+          `Name "${name}" matched ${matchedPlayers.length} players.`);
+    }
   }
 
   clearPlayer(name, admin) {
@@ -190,6 +197,7 @@ export default class Balance extends BasePlugin {
   }
 
   async onRoundEnded(info) {
+    this.announced = false;
     if (!this.markedPlayers.length) return;
     this.timeout = setTimeout(this.announceBalance, 2000, this);
     this.timeout = setTimeout(this.movePlayers, this.options.delay * 1000, this);

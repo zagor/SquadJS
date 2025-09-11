@@ -386,10 +386,25 @@ export default class VehicleClaims extends BasePlugin {
         const name = this.isClaimableVehicle(stripName);
         if (!name)
           continue;
-        team.vehicles[name] = new Vehicle(name, fullName,
-                                          vicDict.count,
-                                          vicDict.classNames);
-        this.verbose(1, `${faction}: ${vicDict.count} x ${fullName}`);
+        if (!team.vehicles[name]) {
+          team.vehicles[name] = new Vehicle(name, fullName,
+                                            vicDict.count,
+                                            vicDict.classNames);
+          this.verbose(1, `${faction}: ${vicDict.count} x ${fullName}`);
+        }
+        else {
+          // 9.0 layer data is a little buggy:
+          // - TLF_LO_AirAssault have double 1x tank listings and both tanks spawn
+          // - TLF_LD_Armored have double 2x tank listings but only two tanks spawn
+          // So use what we know and count the double listings if the first was only 1.
+          if (team.vehicles[name].count == 1) {
+            team.vehicles[name].count += vicDict.count;
+            this.verbose(1, `update: ${faction}: ${team.vehicles[name].count} x ${fullName}`);
+          }
+          else {
+            this.verbose(1, `not adding: ${faction}: ${vicDict.count} x ${fullName}`);
+          }
+        }
       }
     }
   }

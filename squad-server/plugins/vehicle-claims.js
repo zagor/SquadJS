@@ -5,11 +5,13 @@ const TANKS = ['T62', 'T72', 'T90', 'M1A1', 'M1A2', 'M60', 'FV4034', 'LEOPARD', 
 const HELIS = ['MI8', 'SA330', 'UH60', 'UH1', 'CH146CAS', 'CH146', 'CH178', 'MRH90',
                'Z8', 'RAVEN', 'LOACHSCOUT', 'LOACHCAS']
 
+const M1126 = /M1126CROWSM2$/;
+
 const claimableVehicles = [
   'BTR80', 'BTR82', 'ASLAV', 'LAV25', 'LAV6', 'LAVIIIM2', 'COYOTE',
   'PARSIII25MM', 'PARSIIIM2',
   'ACV25MM', 'ACVM2',
-  'M1126', 'M1128', 'M2A3', 'M7A3',
+  M1126, 'M1128', 'M2A3', 'M7A3',
   'ZBL08', 'ZBD04', 'ZBD05', 'ZTD05',
   'BMP1', 'BMP2', 'BMP3', 'BMD1', 'BMD4',
   'BM21', 'MTLBM6MB',
@@ -55,7 +57,8 @@ const vehicleAliases = {
   'MTLBM': 'MTLBM6MB',
   'MTLB30MM': 'MTLBM6MB',
   'MGS': 'M1128',
-  'STRYKER': 'M1126',
+  'M1126': M1126,
+  'STRYKER': M1126,
 };
 
 const allowedLockWithoutClaim = [
@@ -370,8 +373,14 @@ export default class VehicleClaims extends BasePlugin {
 
   isClaimableVehicle(vehicleName) {
     for (const v of claimableVehicles) {
-      if (vehicleName.startsWith(v))
-        return v;
+      if (typeof v === 'string') {
+        if (vehicleName.startsWith(v))
+          return v;
+      }
+      else if (typeof v === 'object') {
+        if (vehicleName.match(v))
+          return v;
+      }
     }
     return undefined;
   }

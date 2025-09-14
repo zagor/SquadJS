@@ -2,7 +2,7 @@ import { iterateIDs, capitalID } from 'core/id-parser';
 
 export default {
   regex:
-    /^\[([0-9.:-]+)]\[([ 0-9]*)]LogSquadTrace: \[DedicatedServer](?:ASQPlayerController::)?OnUnPossess\(\): PC=(.+) \(Online IDs:([^)]+)\) .*FullPath=([A-z0-9_]+)/,
+    /^\d*\[([0-9.:-]+)]\[([ 0-9]*)]LogSquadTrace: \[DedicatedServer](?:ASQPlayerController::)?OnUnPossess\(\): PC=(.+) \(Online IDs:([^)]+)\) .*FullPath=([\w\-]+)/,
   onMatch: (args, logParser) => {
     if (args[4].includes('INVALID')) return; // bail in case of bad IDs.
     const data = {

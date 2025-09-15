@@ -44,25 +44,43 @@ class Layers {
   convertFactionToUnit(layer, factionName, teamIndex) {
     // From factionName, in format "ADF+Mechanized", return the correct
     // "ADF_XX_Mechanized" for current layer.
-    const factionParts = factionName.split("+");
+    const [fname, ftype] = factionName.split("+");
     const matches = layer.factions.filter((f) =>
-      f.factionId === factionParts[0] &&
+      f.factionId === fname &&
         f.availableOnTeams.includes(teamIndex + 1)
     );
     if (matches.length === 1) {
       const faction = matches[0];
-      if (factionParts.length === 1) {
+      if (!ftype) {
         return faction.defaultUnit;
       }
       else {
         const unitParts = faction.defaultUnit.split('_', 2);
-        if (faction.types.includes(factionParts[1]))
-          return `${unitParts[0]}_${unitParts[1]}_${factionParts[1]}`;
+        if (faction.types.includes(ftype))
+          return `${unitParts[0]}_${unitParts[1]}_${ftype}`;
         else
           return faction.defaultUnit;
       }
     }
-    Logger.verbose('Layers', 1, `Failed to convert faction "${factionName}" on layer ${layer.name}, returned ${matches.length} matches`);
+    else if (matches.length === 0) {
+      // Data problem workaround: The layer data says this faction is not
+      // available on this map, but that is not always true! Use the
+      // specified faction and append bits from the first listed faction on
+      // the same team.
+      const matches = layer.factions.filter(
+        (f) => f.availableOnTeams.includes(teamIndex + 1));
+      const faction = matches[0];
+      const [_, code, defaultUnit] = faction.defaultUnit.match(/^[A-Z]+_([A-Z]+)_(\w+)/);
+      let ret;
+      if (ftype)
+        ret = `${fname}_${code}_${ftype}`;
+      else
+        ret = `${fname}_${code}_${defaultUnit}`;
+      Logger.verbose('Layers', 1, `Faction ${factionName} is not listed for ${layer.name}, returning ${ret}`);
+      return ret;
+    }
+    else
+      Logger.verbose('Layers', 1, `Failed to convert faction "${factionName}" on layer ${layer.name}, returned ${matches.length} matches`);
   }
 
   async getLayerById(layerId, factionOne, factionTwo) {

@@ -109,6 +109,18 @@ export default class SquadRcon extends Rcon {
       return;
     }
 
+    const matchSqRenamed = decodedPacket.body.match(
+      /Remote admin renamed squad (?<squadID>\d+) on team (?<teamID>\d), named "(?<oldName>.+)", to "(?<newName>.+)"/
+    );
+    if (matchSqRenamed) {
+      Logger.verbose('SquadRcon', 2, `Matched Squad Renamed: ${decodedPacket.body}`);
+      this.emit('SQUAD_RENAMED', {
+        time: new Date(),
+        ...matchSqRenamed.groups
+      });
+      return;
+    }
+
     const matchBan = decodedPacket.body.match(
       /Banned player ([0-9]+)\. \[Online IDs=([^\]]+)\] (.*) for interval (.*)/
     );
@@ -126,13 +138,15 @@ export default class SquadRcon extends Rcon {
         result[lowerID(platform)] = id;
       });
       this.emit('PLAYER_BANNED', result);
+      return;
     }
+
+    Logger.verbose('SquadRcon', 3, 'Unmatched rcon message:', decodedPacket.body);
   }
 
   async getCurrentMap() {
     const response = await this.execute('ShowCurrentMap');
     const match = response.match(/^Current level is ([^,]*), layer is ([^,]*), factions ([\w+]+) ([\w+]+)/);
-    Logger.verbose('SquadRcon', 3, 'ShowCurrentMap: %o', match);
     return {
       level: match[1],
       layer: match[2],
@@ -144,7 +158,6 @@ export default class SquadRcon extends Rcon {
   async getNextMap() {
     const response = await this.execute('ShowNextMap');
     const match = response.match(/^Next level is ([^,]*), layer is ([^,]*), factions ([\w+]+) ([\w+]+)/);
-    Logger.verbose('SquadRcon', 3, 'ShowNextMap: %o', match);
     return {
       level: match ? (match[1] !== '' ? match[1] : null) : null,
       layer: match ? (match[2] !== 'To be voted' ? match[2] : null) : null,

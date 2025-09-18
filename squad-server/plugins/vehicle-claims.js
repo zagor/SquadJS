@@ -160,6 +160,7 @@ export default class VehicleClaims extends BasePlugin {
     this.thiefs = {};
     this.onNewGame = this.onNewGame.bind(this);
     this.onSquadCreated = this.onSquadCreated.bind(this);
+    this.onSquadRenamed = this.onSquadRenamed.bind(this);
     this.onSquadsUpdated = this.onSquadsUpdated.bind(this);
     this.onPlayerPossess = this.onPlayerPossess.bind(this);
     this.onPlayerUnPossess = this.onPlayerUnPossess.bind(this);
@@ -171,6 +172,7 @@ export default class VehicleClaims extends BasePlugin {
   async mount() {
     this.server.on('NEW_GAME', this.onNewGame);
     this.server.on('SQUAD_CREATED', this.onSquadCreated);
+    this.server.on('SQUAD_RENAMED', this.onSquadRenamed);
     this.server.on('UPDATED_SQUAD_INFORMATION', this.onSquadsUpdated);
     this.server.on('PLAYER_POSSESS', this.onPlayerPossess);
     this.server.on('PLAYER_UNPOSSESS', this.onPlayerUnPossess);
@@ -183,6 +185,7 @@ export default class VehicleClaims extends BasePlugin {
   async unmount() {
     this.server.removeEventListener('NEW_GAME', this.onNewGame);
     this.server.removeEventListener('SQUAD_CREATED', this.onSquadCreated);
+    this.server.removeEventListener('SQUAD_RENAMED', this.onSquadRenamed);
     this.server.removeEventListener('UPDATED_SQUAD_INFORMATION', this.onSquadsUpdated);
     this.server.removeEventListener('PLAYER_POSSESS', this.onPlayerPossess);
     this.server.removeEventListener('PLAYER_UNPOSSESS', this.onPlayerUnPossess);
@@ -474,16 +477,15 @@ export default class VehicleClaims extends BasePlugin {
     }
   }
 
-  async onSquadCreated(info) {
-    try {
-      this._onSquadCreated(info);
-    }
-    catch (err) {
-      this.verbose(1, "Caught error " + err);
-    }
+  async onSquadRenamed(info) {
+    this.verbose(2, "Pruning squad claims for", info.teamID, info.squadID);
+    if (!this.claimsEnabled) return;
+    await this.server.updateSquadList();
+    const team = this.teams[info.teamID - 1];
+    this.pruneSquadClaims(team, info.squadID);
   }
 
-  async _onSquadCreated(info) {
+  async onSquadCreated(info) {
     if (!this.claimsEnabled) return;
     await this.server.updateSquadList();
 

@@ -167,6 +167,10 @@ export default class SquadServer extends EventEmitter {
 
       this.emit('SQUAD_CREATED', data);
     });
+
+    this.rcon.on('SQUAD_RENAMED', (data) => {
+      this.emit('SQUAD_RENAMED', data);
+    });
   }
 
   async restartRCON() {

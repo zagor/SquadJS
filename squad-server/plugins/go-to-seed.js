@@ -1,4 +1,5 @@
 import BasePlugin from './base-plugin.js';
+import { Layers } from '../layers/index.js';
 
 export default class GoToSeed extends BasePlugin {
   static get description() {
@@ -17,6 +18,11 @@ export default class GoToSeed extends BasePlugin {
         required: false,
         description: 'Number of players under which seed is started.',
         default: 10
+      },
+      use_all_layers: {
+        required: false,
+        description: 'Use all seed layers.',
+        default: false
       },
       seed_layer: {
         required: false,
@@ -38,10 +44,26 @@ export default class GoToSeed extends BasePlugin {
   }
 
   async mount() {
+    if (this.options.use_all_layers) {
+      this.layer_list = Layers.layers.filter((l) => l.gamemode == "Seed");
+    }
   }
 
   async unmount() {
   }
+
+  randomizeLayer() {
+    const layerNum = Math.floor(Math.random() * this.layer_list.length);
+    const layer = this.layer_list[layerNum];
+    const faction1Num = Math.floor(Math.random() * layer.factions.length);
+    let faction2Num = undefined;
+    do {
+      faction2Num = Math.floor(Math.random() * layer.factions.length);
+    } while (faction2Num == faction1Num);
+
+    return `${layer.classname} ${layer.factions[faction1Num].factionId} ${layer.factions[faction2Num].factionId}`;
+  }
+
 
   async onTimerExpiry() {
     if (this.server.currentLayer.name.toLowerCase().includes('seed'))
@@ -49,8 +71,13 @@ export default class GoToSeed extends BasePlugin {
 
     const players = this.server.players.length;
     if (players > 0 && players < this.options.player_limit) {
-      this.verbose(1, `Only ${this.server.players.length} players, going to seed.`);
-      await this.server.rcon.execute(`AdminChangeLayer ${this.options.seed_layer}`);
+      let layer = undefined;
+      if (this.options.use_all_layers)
+        layer = this.randomizeLayer();
+      else
+        layer = this.options.seed_layer;
+      this.verbose(1, `Only ${this.server.players.length} players, going to ${layer}`);
+      await this.server.rcon.execute(`AdminChangeLayer ${layer}`);
     }
   }
 }

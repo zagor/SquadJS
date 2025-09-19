@@ -12,7 +12,13 @@ export default class LastAdmin extends BasePlugin {
   }
 
   static get optionsSpecification() {
-    return {};
+    return {
+      chat_command: {
+        required: false,
+        description: '"Show admins" chat command.',
+        default: "admins"
+      }
+    };
   }
 
   constructor(server, options, connectors) {
@@ -20,6 +26,7 @@ export default class LastAdmin extends BasePlugin {
 
     this.onPlayerConnected = this.onPlayerConnected.bind(this);
     this.onPlayerDisconnected = this.onPlayerDisconnected.bind(this);
+    this.onAdminsCommand = this.onAdminsCommand.bind(this);
     this.adminList = {};
     this.adminsOnline = [[], [], []]; // total, team1, team2
   }
@@ -31,6 +38,7 @@ export default class LastAdmin extends BasePlugin {
   async mount() {
     this.server.on('PLAYER_CONNECTED', this.onPlayerConnected);
     this.server.on('PLAYER_DISCONNECTED', this.onPlayerDisconnected);
+    this.server.on(`CHAT_COMMAND:${this.options.chat_command}`, this.onAdminsCommand);
 
     for (const [id, perms] of Object.entries(this.server.admins)) {
       if ('canseeadminchat' in perms) {
@@ -48,6 +56,19 @@ export default class LastAdmin extends BasePlugin {
   async unmount() {
     this.server.unmount('PLAYER_CONNECTED', this.onPlayerConnected);
     this.server.unmount('PLAYER_DISCONNECTED', this.onPlayerDisconnected);
+  }
+
+  async onAdminsCommand(info) {
+    if (info.chat !== 'ChatAdmin') {
+      this.verbose(1, 'Wrong chat');
+      return;
+    }
+
+    this.verbose(1, 'Got chat %o', info);
+    const thisTeam = info.player.teamID;
+    const otherTeam = 3 - info.player.teamID;
+    this.server.rcon.warn(info.player.eosID,
+                          `There are ${this.adminsOnline[thisTeam].length} admins on your team (including you) and ${this.adminsOnline[otherTeam].length} on the opposite team.`);
   }
 
   onPlayerConnected(info) {
@@ -70,7 +91,7 @@ export default class LastAdmin extends BasePlugin {
                             'You are the last admin on the server.');
     }
     else if (this.adminsOnline[info.player.teamID].length === 1) {
-      const otherTeam = teamID == 1 ? 2 : 1;
+      const otherTeam = 3 - info.player.teamID;
       this.server.rcon.warn(
         this.adminsOnline[teamID][0],
         'You are the last admin on your team. ' +

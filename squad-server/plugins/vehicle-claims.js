@@ -660,6 +660,9 @@ export default class VehicleClaims extends BasePlugin {
     if (this.options.locked_squad_min_size == 0)
       return;
 
+    if (this.server.squads.length === 0)
+      return;
+
     const squadLookup = {};
     for (const s of this.server.squads)
       squadLookup[`${s.teamID}:${s.squadID}`] = s;

@@ -56,6 +56,15 @@ export default class AutoKickUnassigned extends BasePlugin {
           '</ul>',
         default: false
       },
+      ignoreAdminCam: {
+        required: false,
+        description:
+          '<ul>' +
+          '<li><code>true</code>: Admins in admincam will <b>NOT</b> be kicked</li>' +
+          '<li><code>false</code>: Admins in admincam <b>WILL</b> be kicked</li>' +
+          '</ul>',
+        default: false
+      },
       ignoreWhitelist: {
         required: false,
         description:
@@ -98,6 +107,7 @@ export default class AutoKickUnassigned extends BasePlugin {
 
     this.onNewGame = this.onNewGame.bind(this);
     this.onPlayerSquadChange = this.onPlayerSquadChange.bind(this);
+    this.onPossessedAdminCam = this.onPossessedAdminCam.bind(this);
     this.updateTrackingList = this.updateTrackingList.bind(this);
     this.clearDisconnectedPlayers = this.clearDisconnectedPlayers.bind(this);
   }
@@ -105,6 +115,7 @@ export default class AutoKickUnassigned extends BasePlugin {
   async mount() {
     this.server.on('NEW_GAME', this.onNewGame);
     this.server.on('PLAYER_SQUAD_CHANGE', this.onPlayerSquadChange);
+    this.server.on('POSSESSED_ADMIN_CAMERA', this.onPossessedAdminCam);
     this.updateTrackingListInterval = setInterval(
       this.updateTrackingList,
       this.trackingListUpdateFrequency
@@ -135,6 +146,11 @@ export default class AutoKickUnassigned extends BasePlugin {
       this.untrackPlayer(player.eosID);
   }
 
+  async onPossessedAdminCam(player) {
+    if (player.eosID in this.trackedPlayers)
+      this.untrackPlayer(player.eosID);
+  }
+
   async updateTrackingList(forceUpdate = false) {
     const run = !(this.betweenRounds || this.server.players.length < this.options.playerThreshold);
 
@@ -161,6 +177,7 @@ export default class AutoKickUnassigned extends BasePlugin {
       const isUnassigned = player.squadID === null;
       const isAdmin = admins.includes(player.eosID);
       const isWhitelist = whitelist.includes(player.eosID);
+      const isInAdminCam = player.eosID in this.server.adminsInAdminCam;
 
       // tracked player joined a squad remove them (redundant afer adding PLAYER_SQUAD_CHANGE, keeping for now)
       if (!isUnassigned && isTracked) this.untrackPlayer(player.eosID);
@@ -172,6 +189,7 @@ export default class AutoKickUnassigned extends BasePlugin {
 
       if (isWhitelist) this.verbose(2, `Whitelist player is Unassigned: ${player.name}`);
       if (isWhitelist && this.options.ignoreWhitelist) continue;
+      if (isInAdminCam && this.options.ignoreAdminCam) continue;
 
       // start tracking player
       if (!isTracked) this.trackedPlayers[player.eosID] = this.trackPlayer({ player });

@@ -19,15 +19,25 @@ export default class GoToSeed extends BasePlugin {
         description: 'Number of players under which seed is started.',
         default: 10
       },
-      use_all_layers: {
+      randomize_layers: {
         required: false,
-        description: 'Use all seed layers.',
+        description: 'Use random seed layer.',
         default: false
+      },
+      randomize_factions: {
+        required: false,
+        description: 'Use random factions from chosen seed layer.',
+        default: false
+      },
+      factions: {
+        required: false,
+        description: 'Factions to use if not random.',
+        default: 'USA RGF'
       },
       seed_layer: {
         required: false,
-        description: 'Name of seed layer.',
-        default: 'Sumari_Seed_v1 USA RGF'
+        description: 'Seed layer to use if not random.',
+        default: 'Sumari_Seed_v1'
       },
       check_interval: {
         required: false,
@@ -44,7 +54,7 @@ export default class GoToSeed extends BasePlugin {
   }
 
   async mount() {
-    if (this.options.use_all_layers) {
+    if (this.options.randomize_layers) {
       this.layer_list = Layers.layers.filter((l) => l.gamemode == "Seed");
     }
   }
@@ -55,15 +65,23 @@ export default class GoToSeed extends BasePlugin {
   randomizeLayer() {
     const layerNum = Math.floor(Math.random() * this.layer_list.length);
     const layer = this.layer_list[layerNum];
+    return layer.classname;
+  }
+
+  randomizeFactions(layerName) {
+    const layer = Layers.layers.filter((l) => l.classname == layerName)[0];
+    if (!layer) {
+      this.verbose(1, 'Could not find layer', layerName);
+      return undefined;
+    }
     const faction1Num = Math.floor(Math.random() * layer.factions.length);
     let faction2Num = undefined;
     do {
       faction2Num = Math.floor(Math.random() * layer.factions.length);
     } while (faction2Num == faction1Num);
 
-    return `${layer.classname} ${layer.factions[faction1Num].factionId} ${layer.factions[faction2Num].factionId}`;
+    return `${layer.factions[faction1Num].factionId} ${layer.factions[faction2Num].factionId}`;
   }
-
 
   async onTimerExpiry() {
     if (this.server.currentLayer.name.toLowerCase().includes('seed'))
@@ -72,12 +90,22 @@ export default class GoToSeed extends BasePlugin {
     const players = this.server.players.length;
     if (players > 0 && players < this.options.player_limit) {
       let layer = undefined;
-      if (this.options.use_all_layers)
+      let factions = this.options.factions;
+      if (this.options.randomize_layers)
         layer = this.randomizeLayer();
       else
         layer = this.options.seed_layer;
-      this.verbose(1, `Only ${this.server.players.length} players, going to ${layer}`);
-      await this.server.rcon.execute(`AdminChangeLayer ${layer}`);
+      if (this.options.randomize_factions)
+        factions = this.randomizeFactions(layer);
+      else
+        factions = this.options.factions;
+      if (layer && factions) {
+        this.verbose(1, `Only ${this.server.players.length} players, going to ${layer} with ${factions}`);
+        await this.server.rcon.execute(`AdminChangeLayer ${layer} ${factions}`);
+      }
+      else {
+        this.verbose(1, 'Something went wrong, got layer/factions:', layer, factions);
+      }
     }
   }
 }

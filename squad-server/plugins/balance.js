@@ -1,6 +1,6 @@
-import BasePlugin from './base-plugin.js';
+import DiscordBasePlugin from './discord-base-plugin.js';
 
-export default class Balance extends BasePlugin {
+export default class Balance extends DiscordBasePlugin {
   static get description() {
     return (
       "The <code>Balance</code> plugin is used to move players between teams for improved balance."
@@ -22,6 +22,11 @@ export default class Balance extends BasePlugin {
         required: false,
         description: 'Delay (in seconds) before moving players after round ends.',
         default: 20
+      },
+      channelID: {
+        required: false,
+        description: 'Discord channel to send notifications to.',
+        default: ""
       }
     };
   }
@@ -200,17 +205,41 @@ export default class Balance extends BasePlugin {
     this.announced = false;
     if (!this.markedPlayers.length) return;
     this.timeout = setTimeout(this.announceBalance, 2000, this);
-    this.timeout = setTimeout(this.movePlayers, this.options.delay * 1000, this);
+    this.timeout = setTimeout(this.movePlayers, this.options.delay * 1000, this, info);
   }
 
   announceBalance(obj) {
     obj.server.rcon.broadcast('Teams are being balanced.');
   }
 
-  movePlayers(obj) {
+  async movePlayers(obj, info) {
     for (const player of obj.markedPlayers) {
       obj.server.rcon.switchTeam(player.eosID);
     }
+
+    await obj.sendDiscordMessage({
+      embed: {
+        title: 'Team balancing performed',
+        color: obj.options.color,
+        fields: [
+          {
+            name: 'Layer',
+            value: info.winner.layer
+          },
+          {
+            name: 'Ticket difference',
+            value: `${info.winner.tickets - info.loser.tickets}.`
+          },
+          {
+            name: 'Moved players',
+            value: obj.markedPlayers.join('\n')
+          }
+        ],
+        footer: '',
+        timestamp: info.time.toISOString()
+      }
+    });
+
     obj.markedPlayers = [];
   }
 }

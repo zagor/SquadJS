@@ -1,14 +1,14 @@
 import BasePlugin from './base-plugin.js';
 
 // Note: Order matters! Put more specific (longer) names before shorter
-const TANKS = ['T62', 'T72', 'T90', 'M1A1', 'M1A2', 'M60', 'FV4034', 'LEOPARD', 'ZTZ99'];
+const TANKS = ['T62', 'T64', 'T72', 'T90', 'M1A1', 'M1A2', 'M60', 'FV4034', 'LEOPARD', 'ZTZ99'];
 const HELIS = ['MI8', 'SA330', 'UH60', 'UH1', 'CH146CAS', 'CH146', 'CH178', 'MRH90',
                'Z8', 'RAVEN', 'LOACHSCOUT', 'LOACHCAS']
 
 const M1126 = /M1126CROWSM2$/;
 
 const claimableVehicles = [
-  'BTR80', 'BTR82', 'ASLAV', 'LAV25', 'LAV6', 'LAVIIIM2', 'COYOTE',
+  'BTR80', 'BTR82', 'BTR4', 'ASLAV', 'LAV25', 'LAV6', 'LAVIIIM2', 'COYOTE',
   'PARSIII25MM', 'PARSIIIM2',
   'ACV1525MM', 'ACV15M2',
   M1126, 'M1128', 'M2A3', 'M7A3',
@@ -19,7 +19,7 @@ const claimableVehicles = [
 ].concat(TANKS).concat(HELIS);
 
 const multiNames = {
-  'BTR': ['BTR80', 'BTR82'],
+  'BTR': ['BTR80', 'BTR82', 'BTR4'],
   'LAV': ['ASLAV', 'LAV25', 'LAV6', 'LAVIIIM2'],
   'BMP': ['BMP1', 'BMP2', 'BMP3'],
   'BMD': ['BMD1', 'BMD4'],

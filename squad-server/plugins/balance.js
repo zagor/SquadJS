@@ -13,6 +13,7 @@ export default class Balance extends DiscordBasePlugin {
 
   static get optionsSpecification() {
     return {
+      ...DiscordBasePlugin.optionsSpecification,
       command: {
         required: false,
         description: 'The command word used for balancing the teams.',
@@ -24,7 +25,7 @@ export default class Balance extends DiscordBasePlugin {
         default: 20
       },
       channelID: {
-        required: false,
+        required: true,
         description: 'Discord channel to send notifications to.',
         default: ""
       }
@@ -213,9 +214,16 @@ export default class Balance extends DiscordBasePlugin {
   }
 
   async movePlayers(obj, info) {
+    let playerNames = [];
     for (const player of obj.markedPlayers) {
       obj.server.rcon.switchTeam(player.eosID);
+      playerNames.push(player.name);
     }
+
+    obj.verbose(1, `Balancing ${playerNames}`);
+    let ticket_diff = 0;
+    if (info.winner)
+      ticket_diff = info.winner.tickets - info.loser.tickets;
 
     await obj.sendDiscordMessage({
       embed: {
@@ -224,15 +232,15 @@ export default class Balance extends DiscordBasePlugin {
         fields: [
           {
             name: 'Layer',
-            value: info.winner.layer
+            value: obj.server.currentLayer.name
           },
           {
             name: 'Ticket difference',
-            value: `${info.winner.tickets - info.loser.tickets}.`
+            value: `${ticket_diff}`
           },
           {
             name: 'Moved players',
-            value: obj.markedPlayers.join('\n')
+            value: playerNames.join('\n')
           }
         ],
         footer: '',

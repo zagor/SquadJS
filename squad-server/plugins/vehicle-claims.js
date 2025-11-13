@@ -16,6 +16,7 @@ const claimableVehicles = [
   'BMP1', 'BMP2', 'BMP3', 'BMD1', 'BMD4',
   'BM21', 'MTLBM6MB',
   'FV107', 'FV432L11A1', 'FV510UA', 'FV510', 'SPRUT',
+  'KRAZ6322BM21', 'URAL375DBM21',
 ].concat(TANKS).concat(HELIS);
 
 const multiNames = {
@@ -34,6 +35,8 @@ const multiNames = {
   'ABRAMS': ['M1A1', 'M1A2'],
   'ZBD': ['ZBD04', 'ZBD05'],
   'CAS': ['LOACHCAS', 'CH146CAS'],
+  'GRAD': ['KRAZ6322BM21', 'URAL375DBM21'],
+  'BM21': ['KRAZ6322BM21', 'URAL375DBM21'],
 };
 
 const vehicleAliases = {
@@ -44,7 +47,6 @@ const vehicleAliases = {
   'ACV25': 'ACV1525MM',
   'ACVM2': 'ACV15M2',
   'ACVIFV': 'ACV1525MM',
-  'GRAD': 'BM21',
   'LEO': 'LEOPARD',
   'PARS25MM': 'PARSIII25MM',
   'PARSM2': 'PARSIIIM2',

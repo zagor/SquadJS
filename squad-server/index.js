@@ -441,7 +441,7 @@ export default class SquadServer extends EventEmitter {
   async updatePlayerList() {
     if (this.updatePlayerListTimeout) clearTimeout(this.updatePlayerListTimeout);
 
-    Logger.verbose('SquadServer', 1, `Updating player list...`);
+    Logger.verbose('SquadServer', 3, `Updating player list...`);
 
     try {
       const oldPlayerInfo = {};
@@ -491,7 +491,7 @@ export default class SquadServer extends EventEmitter {
       Logger.verbose('SquadServer', 1, 'Failed to update player list.', err);
     }
 
-    Logger.verbose('SquadServer', 1, `Updated player list.`);
+    Logger.verbose('SquadServer', 3, `Updated player list.`);
 
     this.updatePlayerListTimeout = setTimeout(this.updatePlayerList, this.updatePlayerListInterval);
   }
@@ -499,7 +499,7 @@ export default class SquadServer extends EventEmitter {
   async updateSquadList() {
     if (this.updateSquadListTimeout) clearTimeout(this.updateSquadListTimeout);
 
-    Logger.verbose('SquadServer', 1, `Updating squad list...`);
+    Logger.verbose('SquadServer', 3, `Updating squad list...`);
 
     try {
       this.squads = await this.rcon.getSquads();
@@ -507,7 +507,7 @@ export default class SquadServer extends EventEmitter {
       Logger.verbose('SquadServer', 1, 'Failed to update squad list.', err);
     }
 
-    Logger.verbose('SquadServer', 1, `Updated squad list.`);
+    Logger.verbose('SquadServer', 3, `Updated squad list.`);
 
     this.updateSquadListTimeout = setTimeout(this.updateSquadList, this.updateSquadListInterval);
     this.emit('UPDATED_SQUAD_INFORMATION');
@@ -516,7 +516,7 @@ export default class SquadServer extends EventEmitter {
   async updateLayerInformation() {
     if (this.updateLayerInformationTimeout) clearTimeout(this.updateLayerInformationTimeout);
 
-    Logger.verbose('SquadServer', 1, `Updating layer information...`);
+    Logger.verbose('SquadServer', 3, `Updating layer information...`);
 
     try {
       const currentMap = await this.rcon.getCurrentMap();
@@ -554,7 +554,7 @@ export default class SquadServer extends EventEmitter {
       Logger.verbose('SquadServer', 1, 'Failed to update layer information.', err);
     }
 
-    Logger.verbose('SquadServer', 1, `Updated layer information.`);
+    Logger.verbose('SquadServer', 3, `Updated layer information.`);
 
     this.updateLayerInformationTimeout = setTimeout(
       this.updateLayerInformation,
@@ -569,7 +569,7 @@ export default class SquadServer extends EventEmitter {
   async updateServerInformation() {
     if (this.updateA2SInformationTimeout) clearTimeout(this.updateA2SInformationTimeout);
 
-    Logger.verbose('SquadServer', 1, `Updating server information...`);
+    Logger.verbose('SquadServer', 3, `Updating server information...`);
 
     try {
       const rawData = await this.rcon.execute(`ShowServerInfo`);
@@ -626,7 +626,7 @@ export default class SquadServer extends EventEmitter {
       Logger.verbose('SquadServer', 1, 'Failed to update server information.', err);
     }
 
-    Logger.verbose('SquadServer', 1, `Updated server information.`);
+    Logger.verbose('SquadServer', 3, `Updated server information.`);
 
     this.updateA2SInformationTimeout = setTimeout(
       this.updateA2SInformation,
@@ -715,7 +715,7 @@ export default class SquadServer extends EventEmitter {
     return; // No, don't
     if (this.pingSquadJSAPITimeout) clearTimeout(this.pingSquadJSAPITimeout);
 
-    Logger.verbose('SquadServer', 1, 'Pinging SquadJS API...');
+    Logger.verbose('SquadServer', 3, 'Pinging SquadJS API...');
 
     const payload = {
       // Send information about the server.

@@ -450,6 +450,8 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async onNewGame() {
+    this.claimsEnabled = this.options.enabled;
+    this.locksEnabled = this.options.enabled;
     if (!this.claimsEnabled) return;
     try {
       this.initLayer();

@@ -30,10 +30,10 @@ export default class SetNextLayer extends BasePlugin {
         description: 'How many factions are quarantined?',
         default: 6
       },
-      invasion_repeat_threshold: {
+      mode_repeat_threshold: {
         required: false,
-        description: 'How many non-invasion rounds must be played before next invasion?',
-        default: 3
+        description: 'How many other modes must be played before next Invasion or AAS is allowed?',
+        default: 5
       },
       min_players: {
         required: false,
@@ -55,7 +55,7 @@ export default class SetNextLayer extends BasePlugin {
     this.layers = [];
     this.playedMaps = [];
     this.playedFactions = [];
-    this.playedInvasion = [];
+    this.playedModes = [];
   }
 
   async mount() {
@@ -102,7 +102,7 @@ export default class SetNextLayer extends BasePlugin {
         return;
       }
 
-      const currRegex = /(\w+)_(\w+)_(\w+) (\w+)_[A-Z]+_([-\w]+) (\w+)_[A-Z]+_([-\w]+)/;
+      const currRegex = /(\w+)_(\w+)_(\w+) +(\w+)_[A-Z]+_([-\w]+) +(\w+)_[A-Z]+_([-\w]+)/;
       const currLine = `${this.server.currentLayer.layerid} ${this.server.currentTeams[0].unitID} ${this.server.currentTeams[1].unitID}`;
       const fields = currLine.match(currRegex);
       if (fields) {
@@ -113,8 +113,8 @@ export default class SetNextLayer extends BasePlugin {
         this.playedFactions.push(faction1);
         this.playedFactions.push(faction2);
         this.playedFactions = this.playedFactions.slice(-this.options.faction_repeat_threshold);
-        this.playedInvasion.push(mode == 'Invasion');
-        this.playedInvasion = this.playedInvasion.slice(-this.options.invasion_repeat_threshold);
+        this.playedModes.push(mode);
+        this.playedModes = this.playedModes.slice(-this.options.mode_repeat_threshold);
       }
       else
         this.verbose(1, '*** error: Regex did not match line:', currLine);
@@ -127,11 +127,11 @@ export default class SetNextLayer extends BasePlugin {
   setNextLayer() {
     try {
       // "Mutaha_Invasion_v1 ADF+Mechanized INS+LightInfantry"
-      const nextMapRegex = /(\w+)_(\w+)_(\w+) (\w+)\+?(\w+)? (\w+)\+?(\w+)?/;
+      const nextMapRegex = /(\w+)_(\w+)_(\w+) +(\w+)\+?(\w+)? +(\w+)\+?(\w+)?/;
       const layersList = this.layers.slice();
       let line = '';
 
-      this.verbose(2, 'History:', this.playedMaps, this.playedFactions, this.playedInvasion);
+      this.verbose(2, 'History:', this.playedMaps, this.playedFactions, this.playedModes);
 
       while (layersList.length) {
         const lineNum = Math.floor(Math.random() * layersList.length);
@@ -153,7 +153,8 @@ export default class SetNextLayer extends BasePlugin {
         if (this.playedMaps.includes(map) ||
             this.playedFactions.includes(faction1) ||
             this.playedFactions.includes(faction2) ||
-            (mode == 'Invasion' && this.playedInvasion.includes(true))) {
+            (mode == 'Invasion' && this.playedModes.includes('Invasion')) ||
+            (mode == 'AAS' && this.playedModes.includes('AAS'))) {
           layersList.splice(lineNum, 1);
           continue;
         }

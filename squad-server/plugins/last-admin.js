@@ -28,7 +28,7 @@ export default class LastAdmin extends BasePlugin {
     this.onPlayerDisconnected = this.onPlayerDisconnected.bind(this);
     this.onAdminsCommand = this.onAdminsCommand.bind(this);
     this.adminList = {};
-    this.adminsOnline = [[], [], []]; // total, team1, team2
+    this.adminsOnline = []; // total, team1, team2
   }
 
   isAdmin(steamID) {
@@ -47,9 +47,9 @@ export default class LastAdmin extends BasePlugin {
     }
 
     const admins = this.server.players.filter(p => this.isAdmin(p.steamID));
-    this.adminsOnline = [admins.map(p => p.steamID),
-                         admins.filter(p => p.teamID == 1).map(p => p.steamID),
-                         admins.filter(p => p.teamID == 2).map(p => p.steamID)];
+    this.adminsOnline = [new Set(admins.map(p => p.steamID)),
+                         new Set(admins.filter(p => p.teamID == 1).map(p => p.steamID)),
+                         new Set(admins.filter(p => p.teamID == 2).map(p => p.steamID))];
     this.verbose(1, "Admins online:", this.adminsOnline);
   }
 
@@ -68,34 +68,41 @@ export default class LastAdmin extends BasePlugin {
     const thisTeam = info.player.teamID;
     const otherTeam = 3 - info.player.teamID;
     this.server.rcon.warn(info.player.eosID,
-                          `There are ${this.adminsOnline[thisTeam].length} admins on your team (including you) and ${this.adminsOnline[otherTeam].length} on the opposite team.`);
+                          `There are ${this.adminsOnline[thisTeam].size} admins on your team (including you) and ${this.adminsOnline[otherTeam].size} on the opposite team.`);
   }
 
   onPlayerConnected(info) {
     if (!this.isAdmin(info.player.steamID))
       return;
 
-    this.adminsOnline[0].push(info.player.steamID);
-    this.adminsOnline[info.player.teamID].push(info.player.steamID);
+    this.adminsOnline[0].add(info.player.steamID);
+    this.adminsOnline[info.player.teamID].add(info.player.steamID);
     this.verbose(1, "Admins online:", this.adminsOnline);
   }
 
   onPlayerDisconnected(info) {
+    if (!info.player) {
+      this.verbose(1, "*** Error: No player in PLAYER_DISCONNECTED:");
+      return;
+    }
     if (!this.isAdmin(info.player.steamID))
       return;
-    this.adminsOnline[0].splice(this.adminsOnline[0].indexOf(info.player.steamID), 1)
-    this.adminsOnline[info.player.teamID].splice(this.adminsOnline[info.player.teamID].indexOf(info.player.steamID), 1)
+    this.adminsOnline[0].delete(info.player.steamID)
+    this.adminsOnline[info.player.teamID].delete(info.player.steamID)
 
-    if (this.adminsOnline[0].length === 1) {
-      this.server.rcon.warn(this.adminsOnline[0][0],
-                            'You are the last admin on the server.');
+    if (this.adminsOnline[0].size === 1) {
+      this.adminsOnline[0].forEach((eosid) => {
+        this.server.rcon.warn(eosid, 'You are the last admin on the server.');
+      });
     }
-    else if (this.adminsOnline[info.player.teamID].length === 1) {
+    else if (this.adminsOnline[info.player.teamID].size === 1) {
       const otherTeam = 3 - info.player.teamID;
-      this.server.rcon.warn(
-        this.adminsOnline[teamID][0],
-        'You are the last admin on your team. ' +
-          `There are ${this.adminsOnline[otherTeam].length} admins on the opposite team.`);
+      this.adminsOnline[teamID].forEach((eosid) => {
+        this.server.rcon.warn(
+          eosid,
+          'You are the last admin on your team. ' +
+            `There are ${this.adminsOnline[otherTeam].size} admins on the opposite team.`);
+      });
     }
     this.verbose(1, "Admins online:", this.adminsOnline);
   }

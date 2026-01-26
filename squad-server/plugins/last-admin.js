@@ -88,14 +88,16 @@ export default class LastAdmin extends BasePlugin {
     if (!this.isAdmin(info.player.steamID))
       return;
     this.adminsOnline[0].delete(info.player.steamID)
-    this.adminsOnline[info.player.teamID].delete(info.player.steamID)
+    this.adminsOnline[1].delete(info.player.steamID)
+    this.adminsOnline[2].delete(info.player.steamID)
 
     if (this.adminsOnline[0].size === 1) {
       this.adminsOnline[0].forEach((eosid) => {
         this.server.rcon.warn(eosid, 'You are the last admin on the server.');
       });
     }
-    else if (this.adminsOnline[info.player.teamID].size === 1) {
+    else if (info.player.teamID &&
+             this.adminsOnline[info.player.teamID].size === 1) {
       const otherTeam = 3 - info.player.teamID;
       this.adminsOnline[teamID].forEach((eosid) => {
         this.server.rcon.warn(

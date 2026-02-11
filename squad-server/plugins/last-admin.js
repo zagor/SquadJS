@@ -82,7 +82,7 @@ export default class LastAdmin extends BasePlugin {
 
   onPlayerDisconnected(info) {
     if (!info.player) {
-      this.verbose(1, "*** Error: No player in PLAYER_DISCONNECTED:");
+      this.verbose(1, "*** Error: No player in PLAYER_DISCONNECTED:", info);
       return;
     }
     if (!this.isAdmin(info.player.steamID))
@@ -99,7 +99,7 @@ export default class LastAdmin extends BasePlugin {
     else if (info.player.teamID &&
              this.adminsOnline[info.player.teamID].size === 1) {
       const otherTeam = 3 - info.player.teamID;
-      this.adminsOnline[teamID].forEach((eosid) => {
+      this.adminsOnline[info.player.teamID].forEach((eosid) => {
         this.server.rcon.warn(
           eosid,
           'You are the last admin on your team. ' +

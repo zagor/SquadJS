@@ -157,8 +157,8 @@ export default class VehicleClaims extends BasePlugin {
 
   constructor(server, options, connectors) {
     super(server, options, connectors);
-    this.claimsEnabled = options.enabled;
-    this.locksEnabled = options.enabled;
+    this.claimsEnabled = true;
+    this.locksEnabled = true;
     this.thiefs = {};
     this.onNewGame = this.onNewGame.bind(this);
     this.onSquadCreated = this.onSquadCreated.bind(this);
@@ -197,6 +197,10 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   isAdmin(playerID) {
+    if (!playerID) {
+      this.verbose(1, "isAdmin called with", playerID);
+      return false;
+    }
     if (playerID in this.server.admins && this.server.admins[playerID].chat) {
       return true;
     }
@@ -450,8 +454,8 @@ export default class VehicleClaims extends BasePlugin {
   }
 
   async onNewGame() {
-    this.claimsEnabled = this.options.enabled;
-    this.locksEnabled = this.options.enabled;
+    this.claimsEnabled = true;
+    this.locksEnabled = true;
     if (!this.claimsEnabled) return;
     try {
       this.initLayer();
@@ -739,6 +743,7 @@ export default class VehicleClaims extends BasePlugin {
         else {
           const secondsLeft = Math.floor(this.options.locked_squad_warn_delay - ((now - squad.lockTime) / 1000));
           this.verbose(2, `${prefix} is invalidly locked, but has ${secondsLeft} seconds left`);
+          this.verbose(3, s);
         }
       }
     }

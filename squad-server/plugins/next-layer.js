@@ -27,7 +27,27 @@ export default class NextLayer extends BasePlugin {
         required: false,
         description: 'The interval for broadcasting next layer, in minutes. 0 to disable.',
         default: 30
-      }
+      },
+      warn_admins_late_night: {
+        required: false,
+        description: 'Warn admins late at night.',
+        default: false,
+      },
+      late_night_time: {
+        required: false,
+        description: 'After what time to start warning admins.',
+        default: '21:30',
+      },
+      warn_admins_late_seed: {
+        required: false,
+        description: 'Warn admins late on seed.',
+        default: false,
+      },
+      late_seed_player_count: {
+        required: false,
+        description: 'After what player count to start warning admins.',
+        default: 50,
+      },
     };
   }
 
@@ -37,6 +57,7 @@ export default class NextLayer extends BasePlugin {
     this.onNewGame = this.onNewGame.bind(this);
     this.onRoundEnded = this.onRoundEnded.bind(this);
     this.broadcastTimer = undefined;
+    this.adminList = new Set();
   }
 
   async mount() {
@@ -44,6 +65,17 @@ export default class NextLayer extends BasePlugin {
     this.server.on('NEW_GAME', this.onNewGame);
     this.server.on('ROUND_ENDED', this.onRoundEnded);
     this.startMidGameTimer();
+
+    // make a list of all registered admins
+    for (const [id, perms] of Object.entries(this.server.admins)) {
+      if ('canseeadminchat' in perms) {
+        this.adminList.add(id);
+      }
+    }
+  }
+
+  isAdmin(steamID) {
+    return this.adminList.has(steamID);
   }
 
   async unmount() {
@@ -60,12 +92,12 @@ export default class NextLayer extends BasePlugin {
     }
     const delay = timer - now;
     this.verbose(1, `First broadcast in ${Math.round(delay / 60000)} minutes.`);
-    this.broadcastTimer = setTimeout(this.onTimerExpiry, delay, this);
+    this.broadcastTimer = setInterval(this.onTimerExpiry, delay, this);
   }
 
   startTimer() {
     const delay = this.options.broadcast_interval * 60000;
-    this.broadcastTimer = setTimeout(this.onTimerExpiry, delay, this);
+    this.broadcastTimer = setInterval(this.onTimerExpiry, delay, this);
   }
 
   onNewGame() {
@@ -76,7 +108,7 @@ export default class NextLayer extends BasePlugin {
   }
 
   onRoundEnded() {
-    clearTimeout(this.broadcastTimer);
+    clearInterval(this.broadcastTimer);
   }
 
   async getLayerText() {
@@ -90,11 +122,31 @@ export default class NextLayer extends BasePlugin {
     return `Next layer is ${this.server.nextLayer.name}\n${units[0]} vs ${units[1]}`;
   }
 
+  isTimeLater(input) {
+    const [hour, minute] = input.split(':').map(Number);
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const inputMinutes = hour * 60 + minute;
+    return currentMinutes >= inputMinutes;
+  }
+
+  maybeWarnAdmins(text) {
+    if ((this.options.warn_admins_late_night &&
+         this.isTimeLater(this.options.late_night_time)) ||
+        (this.options.warn_admins_late_seed &&
+         this.server.currentLayer.name.includes('Seed') &&
+         this.server.players.length >= this.options.late_seed_player_count)) {
+      for (const player of this.server.players.filter(p => this.isAdmin(p.steamID))) {
+        this.server.rcon.warn(player.steamID, text);
+      }
+    }
+  }
+
   async onTimerExpiry(obj) {
     const text = await obj.getLayerText();
     obj.verbose(1, "Timed broadcast");
     obj.server.rcon.broadcast(text);
-    obj.startTimer();
+    obj.maybeWarnAdmins(text);
   }
 
   async onChatCommand(info) {

@@ -15,7 +15,7 @@ const claimableVehicles = [
   'ZBL08', 'ZBD04', 'ZBD05', 'ZTD05',
   'BMP1', 'BMP2', 'BMP3', 'BMD1', 'BMD4',
   'BM21', 'MTLBM6MB',
-  'FV107', 'FV432L11A1', 'FV510UA', 'FV510', 'SPRUT',
+  'FV107', 'FV432L11A1RWS', 'FV510UA', 'FV510', 'SPRUT',
   'KRAZ6322BM21', 'URAL375DBM21',
 ].concat(TANKS).concat(HELIS);
 
@@ -40,8 +40,8 @@ const multiNames = {
 };
 
 const vehicleAliases = {
-  'BULLDOG': 'FV432L11A1',
-  'FV432': 'FV432L11A1',
+  'BULLDOG': 'FV432L11A1RWS',
+  'FV432': 'FV432L11A1RWS',
   'SCIMITAR': 'FV107',
   'LAV3': 'LAVIIIM2',
   'ACV25': 'ACV1525MM',
@@ -491,10 +491,6 @@ export default class VehicleClaims extends BasePlugin {
     if (!this.claimsEnabled) return;
     await this.server.updateSquadList();
 
-    this.verbose(2, 'info', info);
-    if (info.creatorSteamID in this.server.admins) {
-      this.verbose(2, 'admin', this.server.admins[info.creatorSteamID]);
-    }
     const teamIndex = info.player.teamID - 1;
     const team = this.teams[teamIndex];
     const faction = this.server.currentTeams[teamIndex].faction;

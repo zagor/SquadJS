@@ -57,7 +57,6 @@ export default class NextLayer extends BasePlugin {
     this.onNewGame = this.onNewGame.bind(this);
     this.onRoundEnded = this.onRoundEnded.bind(this);
     this.broadcastTimer = undefined;
-    this.adminList = new Set();
   }
 
   async mount() {
@@ -65,17 +64,10 @@ export default class NextLayer extends BasePlugin {
     this.server.on('NEW_GAME', this.onNewGame);
     this.server.on('ROUND_ENDED', this.onRoundEnded);
     this.startMidGameTimer();
-
-    // make a list of all registered admins
-    for (const [id, perms] of Object.entries(this.server.admins)) {
-      if ('canseeadminchat' in perms) {
-        this.adminList.add(id);
-      }
-    }
   }
 
   isAdmin(steamID) {
-    return this.adminList.has(steamID);
+    return steamID in this.server.admins && this.server.admins[steamID].chat;
   }
 
   async unmount() {

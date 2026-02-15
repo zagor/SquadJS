@@ -27,24 +27,17 @@ export default class LastAdmin extends BasePlugin {
     this.onPlayerConnected = this.onPlayerConnected.bind(this);
     this.onPlayerDisconnected = this.onPlayerDisconnected.bind(this);
     this.onAdminsCommand = this.onAdminsCommand.bind(this);
-    this.adminList = {};
     this.adminsOnline = []; // total, team1, team2
   }
 
   isAdmin(steamID) {
-    return steamID in this.adminList;
+    return steamID in this.server.admins && this.server.admins[steamID].chat;
   }
 
   async mount() {
     this.server.on('PLAYER_CONNECTED', this.onPlayerConnected);
     this.server.on('PLAYER_DISCONNECTED', this.onPlayerDisconnected);
     this.server.on(`CHAT_COMMAND:${this.options.chat_command}`, this.onAdminsCommand);
-
-    for (const [id, perms] of Object.entries(this.server.admins)) {
-      if ('canseeadminchat' in perms) {
-        this.adminList[id] = true;
-      }
-    }
 
     const admins = this.server.players.filter(p => this.isAdmin(p.steamID));
     this.adminsOnline = [new Set(admins.map(p => p.steamID)),

@@ -196,14 +196,8 @@ export default class VehicleClaims extends BasePlugin {
     this.server.removeEventListener(`CHAT_COMMAND:${this.options.rescue_command}`, this.onRescue);
   }
 
-  isAdmin(playerID) {
-    if (!playerID) {
-      this.verbose(1, "isAdmin called with", playerID);
-      return false;
-    }
-    if (playerID in this.server.admins && this.server.admins[playerID].chat) {
-      return true;
-    }
+  isAdmin(steamID) {
+    return steamID in this.server.admins && this.server.admins[steamID].chat;
   }
 
   async onRescue(info) {
@@ -497,6 +491,10 @@ export default class VehicleClaims extends BasePlugin {
     if (!this.claimsEnabled) return;
     await this.server.updateSquadList();
 
+    this.verbose(2, 'info', info);
+    if (info.creatorSteamID in this.server.admins) {
+      this.verbose(2, 'admin', this.server.admins[info.creatorSteamID]);
+    }
     const teamIndex = info.player.teamID - 1;
     const team = this.teams[teamIndex];
     const faction = this.server.currentTeams[teamIndex].faction;
@@ -743,7 +741,6 @@ export default class VehicleClaims extends BasePlugin {
         else {
           const secondsLeft = Math.floor(this.options.locked_squad_warn_delay - ((now - squad.lockTime) / 1000));
           this.verbose(2, `${prefix} is invalidly locked, but has ${secondsLeft} seconds left`);
-          this.verbose(3, s);
         }
       }
     }

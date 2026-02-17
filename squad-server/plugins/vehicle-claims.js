@@ -3,7 +3,7 @@ import BasePlugin from './base-plugin.js';
 // Note: Order matters! Put more specific (longer) names before shorter
 const TANKS = ['T62', 'T64', 'T72', 'T90', 'M1A1', 'M1A2', 'M60', 'FV4034', 'LEOPARD', 'ZTZ99'];
 const HELIS = ['MI8', 'SA330', 'UH60', 'UH1', 'CH146CAS', 'CH146', 'CH178', 'MRH90',
-               'Z8', 'RAVEN', 'LOACHSCOUT', 'LOACHCAS']
+               'Z8', 'Z9', 'RAVEN', 'LOACHSCOUT', 'LOACHCAS']
 
 const M1126 = /M1126CROWSM2$/;
 
@@ -12,7 +12,7 @@ const claimableVehicles = [
   'PARSIII25MM', 'PARSIIIM2',
   'ACV1525MM', 'ACV15M2',
   M1126, 'M1128', 'M2A3', 'M7A3',
-  'ZBL08', 'ZBD04', 'ZBD05', 'ZTD05',
+  'ZBL08', 'ZBD04', 'ZBD05', 'ZTD05', 'ZSD89II', 'ZSL92IFV',
   'BMP1', 'BMP2', 'BMP3', 'BMD1', 'BMD4',
   'BM21', 'MTLBM6MB',
   'FV107', 'FV432L11A1RWS', 'FV510UA', 'FV510', 'SPRUT',
@@ -55,6 +55,10 @@ const vehicleAliases = {
   'ZBL': 'ZBL08',
   'ZTD': 'ZTD05',
   'ZTZ': 'ZTZ99',
+  'ZSD': 'ZSD89II',
+  'ZSD89': 'ZSD89II',
+  'ZSL': 'ZSL92IFV',
+  'ZSL92': 'ZSL92IFV',
   'TYPE04': 'ZBD04',
   'TYPE08': 'ZBL08',
   'TYPE99': 'ZTZ99',

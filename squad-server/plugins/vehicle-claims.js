@@ -62,7 +62,6 @@ const vehicleAliases = {
   'TYPE04': 'ZBD04',
   'TYPE08': 'ZBL08',
   'TYPE99': 'ZTZ99',
-  'MTLBM': 'MTLBM6MB',
   'MTLB30MM': 'MTLBM6MB',
   'MGS': 'M1128',
   'M1126': M1126,

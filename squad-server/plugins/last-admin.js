@@ -37,18 +37,21 @@ export default class LastAdmin extends BasePlugin {
   async mount() {
     this.server.on('PLAYER_CONNECTED', this.onPlayerConnected);
     this.server.on('PLAYER_DISCONNECTED', this.onPlayerDisconnected);
+    this.server.on('PLAYER_TEAM_CHANGE', this.onPlayerTeamChange);
     this.server.on(`CHAT_COMMAND:${this.options.chat_command}`, this.onAdminsCommand);
 
     const admins = this.server.players.filter(p => this.isAdmin(p.steamID));
     this.adminsOnline = [new Set(admins.map(p => p.steamID)),
-                         new Set(admins.filter(p => p.teamID == 1).map(p => p.steamID)),
-                         new Set(admins.filter(p => p.teamID == 2).map(p => p.steamID))];
+                         new Set(admins.filter(p => p.teamID === 1).map(p => p.steamID)),
+                         new Set(admins.filter(p => p.teamID === 2).map(p => p.steamID))];
     this.verbose(1, "Admins online:", this.adminsOnline);
   }
 
   async unmount() {
-    this.server.unmount('PLAYER_CONNECTED', this.onPlayerConnected);
-    this.server.unmount('PLAYER_DISCONNECTED', this.onPlayerDisconnected);
+    this.server.removeListener('PLAYER_CONNECTED', this.onPlayerConnected);
+    this.server.removeListener('PLAYER_DISCONNECTED', this.onPlayerDisconnected);
+    this.server.removeListener('PLAYER_TEAM_CHANGE', this.onPlayerTeamChange);
+    this.server.removeListener(`CHAT_COMMAND:${this.options.chat_command}`, this.onAdminsCommand);
   }
 
   async onAdminsCommand(info) {
@@ -71,6 +74,18 @@ export default class LastAdmin extends BasePlugin {
     this.adminsOnline[0].add(info.player.steamID);
     this.adminsOnline[info.player.teamID].add(info.player.steamID);
     this.verbose(1, "Admins online:", this.adminsOnline);
+  }
+
+  onPlayerTeamChange(info) {
+    if (!this.isAdmin(info.player.steamID))
+      return;
+
+    const { oldTeamID, newTeamID } = info;
+    if (oldTeamID === 1 || oldTeamID === 2)
+      this.adminsOnline[oldTeamID].delete(info.player.steamID);
+    if (newTeamID === 1 || newTeamID === 2)
+      this.adminsOnline[newTeamID].add(info.player.steamID);
+    this.verbose(1, "Admins online after team change:", this.adminsOnline);
   }
 
   onPlayerDisconnected(info) {

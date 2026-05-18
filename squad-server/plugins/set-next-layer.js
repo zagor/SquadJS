@@ -1,6 +1,9 @@
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
+import Sequelize from 'sequelize';
 import BasePlugin from './base-plugin.js';
+
+const { DataTypes } = Sequelize;
 
 export default class SetNextLayer extends BasePlugin {
   static get description() {
@@ -15,6 +18,12 @@ export default class SetNextLayer extends BasePlugin {
 
   static get optionsSpecification() {
     return {
+      database: {
+        required: true,
+        connector: 'sequelize',
+        description: 'The Sequelize connector to persist play history across restarts.',
+        default: 'sqlite'
+      },
       layer_rotation_cfg: {
         required: false,
         description: 'Path + filename to the LayerRotation.cfg file',
@@ -56,6 +65,47 @@ export default class SetNextLayer extends BasePlugin {
     this.playedMaps = [];
     this.playedFactions = [];
     this.playedModes = [];
+
+    this.model = this.options.database.define(
+      'SetNextLayerState',
+      {
+        playedMaps: {
+          type: DataTypes.TEXT,
+          defaultValue: '[]'
+        },
+        playedFactions: {
+          type: DataTypes.TEXT,
+          defaultValue: '[]'
+        },
+        playedModes: {
+          type: DataTypes.TEXT,
+          defaultValue: '[]'
+        }
+      },
+      { timestamps: false }
+    );
+    this.stateRow = null;
+  }
+
+  async prepareToMount() {
+    await this.model.sync();
+    this.stateRow = await this.model.findOne();
+    if (this.stateRow) {
+      this.playedMaps = JSON.parse(this.stateRow.playedMaps);
+      this.playedFactions = JSON.parse(this.stateRow.playedFactions);
+      this.playedModes = JSON.parse(this.stateRow.playedModes);
+      this.verbose(
+        1,
+        `Restored history from DB: maps: [${this.playedMaps}], factions: [${this.playedFactions}], modes: [${this.playedModes}]`
+      );
+    } else {
+      this.stateRow = await this.model.create({
+        playedMaps: '[]',
+        playedFactions: '[]',
+        playedModes: '[]'
+      });
+      this.verbose(2, 'No persisted history found in DB, starting fresh.');
+    }
   }
 
   async mount() {
@@ -65,6 +115,20 @@ export default class SetNextLayer extends BasePlugin {
     this.markCurrentLayer();
     await this.setNextLayer();
   }
+
+  async saveHistory() {
+    try {
+      await this.stateRow.update({
+        playedMaps: JSON.stringify(this.playedMaps),
+        playedFactions: JSON.stringify(this.playedFactions),
+        playedModes: JSON.stringify(this.playedModes)
+      });
+      this.verbose(3, 'History saved to DB.');
+    } catch (error) {
+      this.verbose(1, '*** error saving history to DB:', error);
+    }
+  }
+
 
   async unmount() {
     this.server.removeEventListener('NEW_GAME', this.onNewGame);
@@ -106,7 +170,7 @@ export default class SetNextLayer extends BasePlugin {
       const currLine = `${this.server.currentLayer.layerid} ${this.server.currentTeams[0].unitID} ${this.server.currentTeams[1].unitID}`;
       const fields = currLine.match(currRegex);
       if (fields) {
-        const [_, map, mode, version, faction1, unit1, faction2, unit2] = fields;
+        const [, map, mode, , faction1, , faction2] = fields;
         this.verbose(2, 'Marking', map, mode, faction1, 'vs', faction2, 'played');
         this.playedMaps.push(map);
         this.playedMaps = this.playedMaps.slice(-this.options.map_repeat_threshold);
@@ -115,6 +179,7 @@ export default class SetNextLayer extends BasePlugin {
         this.playedFactions = this.playedFactions.slice(-this.options.faction_repeat_threshold);
         this.playedModes.push(mode);
         this.playedModes = this.playedModes.slice(-this.options.mode_repeat_threshold);
+        this.saveHistory();
       }
       else
         this.verbose(1, '*** error: Regex did not match line:', currLine);
@@ -147,14 +212,14 @@ export default class SetNextLayer extends BasePlugin {
           this.verbose(1, '*** error: Regex did not match line:', line);
           continue;
         }
-        const [_, map, mode, version, faction1, unit1, faction2, unit2] = fields;
+        const [, map, mode, version, faction1, , faction2] = fields;
 
         this.verbose(2, 'Trying', map, mode, version, faction1, faction2);
         if (this.playedMaps.includes(map) ||
             this.playedFactions.includes(faction1) ||
             this.playedFactions.includes(faction2) ||
-            (mode == 'Invasion' && this.playedModes.includes('Invasion')) ||
-            (mode == 'AAS' && this.playedModes.includes('AAS'))) {
+            (mode === 'Invasion' && this.playedModes.includes('Invasion')) ||
+            (mode === 'AAS' && this.playedModes.includes('AAS'))) {
           layersList.splice(lineNum, 1);
           continue;
         }

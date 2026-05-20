@@ -26,6 +26,7 @@ export default class LastAdmin extends BasePlugin {
 
     this.onPlayerConnected = this.onPlayerConnected.bind(this);
     this.onPlayerDisconnected = this.onPlayerDisconnected.bind(this);
+    this.onPlayerTeamChange = this.onPlayerTeamChange.bind(this);
     this.onAdminsCommand = this.onAdminsCommand.bind(this);
     this.adminsOnline = []; // total, team1, team2
   }

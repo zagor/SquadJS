@@ -81,11 +81,8 @@ export default class LastAdmin extends BasePlugin {
     if (!this.isAdmin(info.player.steamID))
       return;
 
-    const { oldTeamID, newTeamID } = info;
-    if (oldTeamID === 1 || oldTeamID === 2)
-      this.adminsOnline[oldTeamID].delete(info.player.steamID);
-    if (newTeamID === 1 || newTeamID === 2)
-      this.adminsOnline[newTeamID].add(info.player.steamID);
+    this.adminsOnline[info.oldTeamID].delete(info.player.steamID);
+    this.adminsOnline[info.newTeamID].add(info.player.steamID);
     this.verbose(1, "Admins online after team change:", this.adminsOnline);
   }
 

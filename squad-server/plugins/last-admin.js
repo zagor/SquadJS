@@ -74,16 +74,23 @@ export default class LastAdmin extends BasePlugin {
 
     this.adminsOnline[0].add(info.player.steamID);
     this.adminsOnline[info.player.teamID].add(info.player.steamID);
-    this.verbose(1, "Admins online:", this.adminsOnline);
+    this.verbose(1, "Admin", info.player.name, info.player.steamID, "connected");
+    this.verbose(2, "Admins online:", this.adminsOnline);
   }
 
   onPlayerTeamChange(info) {
+    if (!info.player || !info.oldTeamID || !info.newTeamID) {
+      this.verbose(1, "*** Error: Missing data in PLAYER_TEAM_CHANGE. info =", info);
+      return;
+    }
+
     if (!this.isAdmin(info.player.steamID))
       return;
 
     this.adminsOnline[info.oldTeamID].delete(info.player.steamID);
     this.adminsOnline[info.newTeamID].add(info.player.steamID);
-    this.verbose(1, "Admins online after team change:", this.adminsOnline);
+    this.verbose(1, "Admin", info.player.name, info.player.steamID, "switched teams");
+    this.verbose(2, "Admins online after team change:", this.adminsOnline);
   }
 
   onPlayerDisconnected(info) {
@@ -112,6 +119,7 @@ export default class LastAdmin extends BasePlugin {
             `There are ${this.adminsOnline[otherTeam].size} admins on the opposite team.`);
       });
     }
-    this.verbose(1, "Admins online:", this.adminsOnline);
+    this.verbose(1, "Admin", info.player.name, info.player.steamID, "disconnected");
+    this.verbose(2, "Admins online:", this.adminsOnline);
   }
 }

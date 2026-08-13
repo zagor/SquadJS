@@ -84,7 +84,7 @@ export default class GoToSeed extends BasePlugin {
   }
 
   async onTimerExpiry() {
-    if (this.server.currentLayer.name.toLowerCase().includes('seed'))
+    if (!this.server.currentLayer || this.server.currentLayer.name.toLowerCase().includes('seed'))
       return;
 
     const players = this.server.players.length;

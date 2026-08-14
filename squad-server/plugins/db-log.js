@@ -159,9 +159,7 @@ export default class DBLog extends BasePlugin {
           unique: true
         },
         steamID: {
-          type: DataTypes.STRING,
-          notNull: true,
-          unique: true
+          type: DataTypes.STRING
         },
         lastName: {
           type: DataTypes.STRING
@@ -539,7 +537,7 @@ export default class DBLog extends BasePlugin {
           lastName: info.attacker.name
         },
         {
-          conflictFields: ['steamID']
+          conflictFields: ['eosID']
         }
       );
     if (info.victim)
@@ -550,7 +548,7 @@ export default class DBLog extends BasePlugin {
           lastName: info.victim.name
         },
         {
-          conflictFields: ['steamID']
+          conflictFields: ['eosID']
         }
       );
 
@@ -581,7 +579,7 @@ export default class DBLog extends BasePlugin {
           lastName: info.attacker.name
         },
         {
-          conflictFields: ['steamID']
+          conflictFields: ['eosID']
         }
       );
     if (info.victim)
@@ -592,7 +590,7 @@ export default class DBLog extends BasePlugin {
           lastName: info.victim.name
         },
         {
-          conflictFields: ['steamID']
+          conflictFields: ['eosID']
         }
       );
 
@@ -624,7 +622,7 @@ export default class DBLog extends BasePlugin {
           lastName: info.attacker.name
         },
         {
-          conflictFields: ['steamID']
+          conflictFields: ['eosID']
         }
       );
     if (info.victim)
@@ -635,7 +633,7 @@ export default class DBLog extends BasePlugin {
           lastName: info.victim.name
         },
         {
-          conflictFields: ['steamID']
+          conflictFields: ['eosID']
         }
       );
     if (info.reviver)
@@ -646,7 +644,7 @@ export default class DBLog extends BasePlugin {
           lastName: info.reviver.name
         },
         {
-          conflictFields: ['steamID']
+          conflictFields: ['eosID']
         }
       );
 
@@ -682,7 +680,7 @@ export default class DBLog extends BasePlugin {
         lastIP: info.ip
       },
       {
-        conflictFields: ['steamID']
+        conflictFields: ['eosID']
       }
     );
   }

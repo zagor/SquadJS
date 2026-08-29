@@ -53,36 +53,11 @@ export default class Balance extends DiscordBasePlugin {
     this.server.removeEventListener('ROUND_ENDED', this.onRoundEnded);
   }
 
-  splitSend(eosID, buf) {
-    // split and send buffer as chunks of max 200 bytes
-    const chunkSize = 200;
-    let remaining = buf;
-
-    while (remaining.length > chunkSize) {
-      // split at last whitespace character before chunkSize
-      let splitAt = -1;
-      for (let i = chunkSize - 1; i >= 0; i--) {
-        if (/\s/.test(remaining[i])) {
-          splitAt = i;
-          break;
-        }
-      }
-
-      if (splitAt === -1)
-        splitAt = chunkSize;
-      this.server.rcon.warn(eosID, remaining.slice(0, splitAt));
-      remaining = splitAt === chunkSize ? remaining.slice(splitAt) : remaining.slice(splitAt + 1);
-    }
-
-    if (remaining.length)
-      this.server.rcon.warn(eosID, remaining);
-  }
-
   showStatus(admin) {
     let adminWarn = `${this.markedPlayers.length} players selected for balancing:`;
     for (const player of this.markedPlayers)
       adminWarn += '\n' + player.name;
-    this.splitSend(admin.eosID, adminWarn);
+    this.server.rcon.warn(admin.eosID, adminWarn);
   }
 
   markPlayers(playerList, admin) {
@@ -107,7 +82,7 @@ export default class Balance extends DiscordBasePlugin {
         teams[player.teamID-1].push(player);
       }
     }
-    if (teams[0].length == teams[1].length) {
+    if (teams[0].length === teams[1].length) {
       this.server.rcon.warn(
         admin.eosID,
         'Balancing error:\n' +
@@ -127,7 +102,7 @@ export default class Balance extends DiscordBasePlugin {
     this.server.updatePlayerList(this);
 
     for (const player of this.server.players) {
-      if (player.teamID == admin.teamID && player.squadID == squadID) {
+      if (player.teamID === admin.teamID && player.squadID === squadID) {
         players.push(player);
       }
     }

@@ -233,8 +233,29 @@ export default class SquadRcon extends Rcon {
     await this.execute(`AdminSetFogOfWar ${mode}`);
   }
 
-  async warn(anyID, message) {
+  async _warn(anyID, message) {
     await this.execute(`AdminWarn "${anyID}" ${message}`);
+  }
+
+  async warn(anyID, message) {
+    // split and send message as chunks of max 200 bytes
+    const chunkSize = 200;
+
+    while (message.length > chunkSize) {
+      // split at last newline before chunkSize
+      let splitAt = message.lastIndexOf('\n', chunkSize);
+      if (splitAt === -1)
+        // no newline found, split at last space before chunkSize
+        splitAt = message.lastIndexOf(' ', chunkSize);
+      if (splitAt === -1)
+        // no space found, split at chunkSize
+        splitAt = chunkSize;
+      await this._warn(anyID, message.slice(0, splitAt));
+      message = (splitAt === chunkSize) ? message.slice(splitAt) : message.slice(splitAt + 1);
+    }
+
+    if (message.length)
+      await this._warn(anyID, message);
   }
 
   // 0 = Perm | 1m = 1 minute | 1d = 1 Day | 1M = 1 Month | etc...

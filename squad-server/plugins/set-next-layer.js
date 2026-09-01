@@ -113,7 +113,6 @@ export default class SetNextLayer extends BasePlugin {
     this.server.on(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
     await this.readLayers();
     this.markCurrentLayer();
-    await this.setNextLayer();
   }
 
   async saveHistory() {
@@ -171,6 +170,10 @@ export default class SetNextLayer extends BasePlugin {
       const fields = currLine.match(currRegex);
       if (fields) {
         const [, map, mode, , faction1, , faction2] = fields;
+        if (this.playedMaps.length > 0 && this.playedMaps[-1] === map) {
+          this.verbose(2, 'Current map is the same as last map, not marking as played again.');
+          return;
+        }
         this.verbose(2, 'Marking', map, mode, faction1, 'vs', faction2, 'played');
         this.playedMaps.push(map);
         this.playedMaps = this.playedMaps.slice(-this.options.map_repeat_threshold);

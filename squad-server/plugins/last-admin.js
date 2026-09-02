@@ -83,7 +83,7 @@ export default class LastAdmin extends BasePlugin {
       this.verbose(1, 'Wrong chat');
       return;
     }
-    await this.showAdmins(info.player.eosID, info, 'You are the last admin on your team.\n\n');
+    await this.showAdmins(info.player.eosID, info);
   }
 
   onPlayerConnected(info) {
@@ -91,7 +91,7 @@ export default class LastAdmin extends BasePlugin {
 
     this.adminsOnline[0].add(info.player.steamID);
     this.adminsOnline[info.player.teamID].add(info.player.steamID);
-    this.verbose(1, 'Admin', info.player.name, info.player.steamID, 'connected');
+    this.verbose(1, 'Admin', info.player.name, 'connected');
     this.logAdmins();
   }
 
@@ -105,7 +105,7 @@ export default class LastAdmin extends BasePlugin {
 
     this.adminsOnline[info.oldTeamID].delete(info.player.steamID);
     this.adminsOnline[info.newTeamID].add(info.player.steamID);
-    this.verbose(1, 'Admin', info.player.name, info.player.steamID, 'switched teams');
+    this.verbose(1, 'Admin', info.player.name, 'switched teams');
     // log the names of admins on each team
     this.logAdmins();
   }
@@ -129,7 +129,7 @@ export default class LastAdmin extends BasePlugin {
         await this.showAdmins(eosid, info, 'You are the last admin on your team.\n\n');
       });
     }
-    this.verbose(1, 'Admin', info.player.name, info.player.steamID, 'disconnected');
+    this.verbose(1, 'Admin', info.player.name, 'disconnected');
     this.logAdmins();
   }
 }

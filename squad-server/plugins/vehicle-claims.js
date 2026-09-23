@@ -45,6 +45,7 @@ const vehicleAliases = {
   'FV432': 'FV432L11A1RWS',
   'SCIMITAR': 'FV107',
   'LAV3': 'LAVIIIM2',
+  'ACV15': 'ACV1525MM',
   'ACV25': 'ACV1525MM',
   'ACVIFV': 'ACV1525MM',
   'LEO': 'LEOPARD',

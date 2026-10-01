@@ -16,6 +16,14 @@ import fetchAdminLists from './utils/admin-lists.js';
 import { isPlayerID, anyIDToPlayer, anyIDsToPlayers } from './utils/any-id.js';
 import { playerIdNames } from 'core/id-parser';
 
+import util from 'node:util';
+
+export function getCaller() {
+  const callSites = util.getCallSites(3);
+  const frame = callSites.pop();
+  return `${frame.functionName}:${frame.lineNumber}`;
+}
+
 export default class SquadServer extends EventEmitter {
   constructor(options = {}) {
     super();
@@ -195,6 +203,12 @@ export default class SquadServer extends EventEmitter {
       delete data.playerSuffix;
 
       this.emit('DEPLOYABLE_DAMAGED', data);
+    });
+
+    this.logParser.on('MAP_MARKER_PLACED', async (data) => {
+      if (data.playerEOSID) data.player = await this.getPlayerByEOSID(data.playerEOSID);
+      if (!data.player) data.player = await this.getPlayerByName(data.playerName);
+      this.emit('MAP_MARKER_PLACED', data);
     });
 
     this.logParser.on('NEW_GAME', async (data) => {

@@ -203,23 +203,19 @@ export default class SquadRcon extends Rcon {
     let teamName;
     let teamID;
 
-    if (!responseSquad || responseSquad.length < 1) return squads;
+    if (!responseSquad || responseSquad.length < 1) return [squads, tickets];
 
     for (const line of responseSquad.split('\n')) {
-      const tmatch = line.match(/Team ID: (?<teamID>\d) \((?<unitName>.+)\) - Tickets: (?<tickets>\d+)/);
-      if (tmatch) {
-        tickets[+tmatch.groups.teamID - 1] = +tmatch.groups.tickets;
+      const matchSide = line.match(/^Team ID: (?<teamID>\d) \((?<unitName>.+)\) - Tickets: (?<tickets>\d+)/);
+      if (matchSide) {
+        teamID = +matchSide.groups.teamID;
+        teamName = matchSide.groups.unitName;
+        tickets[teamID - 1] = +matchSide.groups.tickets;
         continue;
       }
-
       const match = line.match(
-        /ID: (?<squadID>\d+) \| Name: (?<squadName>.+) \| Size: (?<size>\d+) \| Locked: (?<locked>True|False) \| Creator Name: (?<creatorName>.+) \| Creator Online IDs:([^|]+)/
+        /^ID: (?<squadID>\d+) \| Name: (?<squadName>.+) \| Size: (?<size>\d+) \| Locked: (?<locked>True|False) \| Creator Name: (?<creatorName>.+) \| Creator Online IDs:([^|]+)/
       );
-      const matchSide = line.match(/Team ID: (\d) \((.+)\)/);
-      if (matchSide) {
-        teamID = +matchSide[1];
-        teamName = matchSide[2];
-      }
       if (!match) continue;
       match.groups.squadID = +match.groups.squadID;
       const squad = {

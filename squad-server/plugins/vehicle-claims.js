@@ -505,8 +505,8 @@ export default class VehicleClaims extends BasePlugin {
     this.pruneSquadClaims(team, info.squadID);
     const squadList = this.server.squads.filter(
       (s) => s.teamID == info.player.teamID && s.squadID == info.player.squadID);
-    if (!squadList) {
-      this.verbose(1, "*** Error: No squad matching player!");
+    if (!squadList.length) {
+      this.verbose(1, `*** Error: No squad matching player ${info.player.name} in team ${info.player.teamID} with squadID ${info.player.squadID}`);
       return;
     }
     team.squads[info.squadID] = {

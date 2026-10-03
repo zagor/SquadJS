@@ -25,6 +25,7 @@ export default class LastAdmin extends BasePlugin {
     this.onPlayerConnected = this.onPlayerConnected.bind(this);
     this.onPlayerDisconnected = this.onPlayerDisconnected.bind(this);
     this.onPlayerTeamChange = this.onPlayerTeamChange.bind(this);
+    this.onPlayerPrefix = this.onPlayerPrefix.bind(this);
     this.onAdminsCommand = this.onAdminsCommand.bind(this);
     this.adminsOnline = []; // total, team1, team2
   }
@@ -45,6 +46,7 @@ export default class LastAdmin extends BasePlugin {
     this.server.on('PLAYER_CONNECTED', this.onPlayerConnected);
     this.server.on('PLAYER_DISCONNECTED', this.onPlayerDisconnected);
     this.server.on('PLAYER_TEAM_CHANGE', this.onPlayerTeamChange);
+    this.server.on('PLAYER_PREFIX', this.onPlayerPrefix);
     this.server.on(`CHAT_COMMAND:${this.options.chat_command}`, this.onAdminsCommand);
 
     const admins = this.server.players.filter((p) => this.isAdmin(p.steamID));
@@ -60,6 +62,7 @@ export default class LastAdmin extends BasePlugin {
     this.server.removeListener('PLAYER_CONNECTED', this.onPlayerConnected);
     this.server.removeListener('PLAYER_DISCONNECTED', this.onPlayerDisconnected);
     this.server.removeListener('PLAYER_TEAM_CHANGE', this.onPlayerTeamChange);
+    this.server.removeListener('PLAYER_PREFIX', this.onPlayerPrefix);
     this.server.removeListener(`CHAT_COMMAND:${this.options.chat_command}`, this.onAdminsCommand);
   }
 
@@ -70,7 +73,7 @@ export default class LastAdmin extends BasePlugin {
       prefix +
       `${this.adminsOnline[thisTeam].size} admins on your team: ${this.listAdmins(thisTeam)}\n` +
       `${this.adminsOnline[otherTeam].size} admins on other team: ${this.listAdmins(otherTeam)}`;
-    await this.server.rcon.warn(eosID, msg);
+    this.server.rcon.warn(eosID, msg);
   }
 
   logAdmins() {
@@ -93,6 +96,11 @@ export default class LastAdmin extends BasePlugin {
     this.adminsOnline[info.player.teamID].add(info.player.steamID);
     this.verbose(1, 'Admin', info.player.name, 'connected');
     this.logAdmins();
+  }
+
+  onPlayerPrefix(info) {
+    if (!this.isAdmin(info.player.steamID)) return;
+    this.showAdmins(info.player.eosID, info, `Welcome admin!\n\n`);
   }
 
   onPlayerTeamChange(info) {

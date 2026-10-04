@@ -141,8 +141,9 @@ export default class AutoKickUnassigned extends BasePlugin {
     }, this.gracePeriod);
   }
 
-  async onPlayerSquadChange(player) {
-    if (player.eosID in this.trackedPlayers && player.squadID !== null)
+  async onPlayerSquadChange(info) {
+    const player = info.player;
+    if (player.squadID !== null && player.eosID in this.trackedPlayers)
       this.untrackPlayer(player.eosID);
   }
 
@@ -256,6 +257,7 @@ export default class AutoKickUnassigned extends BasePlugin {
 
   untrackPlayer(eosID) {
     const tracker = this.trackedPlayers[eosID];
+    if (!tracker) return;
     clearInterval(tracker.warnTimerID);
     clearTimeout(tracker.kickTimerID);
     delete this.trackedPlayers[eosID];

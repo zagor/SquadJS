@@ -500,7 +500,7 @@ export default class SquadServer extends EventEmitter {
             oldTeamID: oldInfo.teamID,
             newTeamID: player.teamID
           });
-        if (oldInfo.squadID && player.squadID && player.squadID !== oldInfo.squadID)
+        if ((oldInfo.squadID ?? null) != (player.squadID ?? null))
           this.emit('PLAYER_SQUAD_CHANGE', {
             player: player,
             oldSquadID: oldInfo.squadID,

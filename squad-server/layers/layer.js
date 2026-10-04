@@ -18,6 +18,19 @@ export default class Layer {
     };
     this.factions = data.factions;
     this.commander = data.commander;
+    this.objectives = data.objectives || {};
+    // Main base locations, keyed by team ID (1 or 2), in Unreal units (cm).
+    // Derived from objectives named like "00-Team1Main" / "00-Team2Main".
+    this.mainBases = {};
+    for (const [key, obj] of Object.entries(this.objectives)) {
+      const match = (obj.objectName || key).match(/^\d+-Team(\d)Main$/);
+      if (!match) continue;
+      this.mainBases[parseInt(match[1])] = {
+        x: obj.location_x,
+        y: obj.location_y,
+        z: obj.location_z
+      };
+    }
     if (Object.keys(data.teamConfigs).length)
       this.tickets = [data.teamConfigs.team1.tickets,
                       data.teamConfigs.team2.tickets];

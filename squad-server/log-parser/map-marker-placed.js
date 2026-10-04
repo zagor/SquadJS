@@ -4,7 +4,7 @@ import { iterateIDs, capitalID } from '../../core/id-parser.js';
 // [2026.10.01-12.00.00:000][123]LogSquad: Player SomeName (Team: 1; ID: 76561198000000000) placed a new map marker for team 1 : Type: Enemy Infantry ; Location: X=1.0 Y=2.0 Z=3.0
 export default {
   regex:
-    /^\[([\d.:-]+)\]\[(\d+)]LogSquad: Player (.+) \(Team: (\d+); ID: ([^)]+)\) placed a new map marker for team (\d+)\s*:\s*Type:\s*(.+?)\s*;\s*Location:\s*(.*)/,
+    /^\[([\d.:-]+)\]\[ *(\d+)]LogSquad: Player (.+) \(Team: (\d+); ID: ([^)]+)\) placed a new map marker for team (\d+)\s*:\s*Type:\s*(.+?)\s*;\s*Location:\s*(.*)/,
   onMatch: (args, logParser) => {
     const numbers = (args[8].match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi) || []).map(parseFloat);
 

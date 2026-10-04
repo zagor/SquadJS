@@ -175,7 +175,7 @@ export default class SquadRcon extends Rcon {
 
     for (const line of response.split('\n')) {
       const match = line.match(
-        /^ID: (?<playerID>\d+) \| Online IDs: ([^|]+) \| Name: (?<name>.+) \| Team ID: (?<teamID>\d|N\/A) \| Party ID: #?(?<partyID>\d|N\/A) \| Squad ID: (?<squadID>\d+|N\/A) \| Is Leader: (?<isLeader>True|False) \| Role: (?<role>.+) \| Vehicle: (?<vehicle>\S+|N\/A)( \((?<vehicleRole>.+)\))?$/
+        /^ID: (?<playerID>\d+) \| Online IDs: ([^|]+) \| Name: (?<name>.+) \| Team ID: (?<teamID>\d|N\/A) \| Party ID: #?(?<partyID>\d+|N\/A) \| Squad ID: (?<squadID>\d+|N\/A) \| Is Leader: (?<isLeader>True|False) \| Role: (?<role>.+) \| Vehicle: (?<vehicle>\S+|N\/A)( \((?<vehicleRole>.+)\))?$/
       );
       if (!match) continue;
 

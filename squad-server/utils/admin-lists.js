@@ -51,8 +51,12 @@ export default async function fetchAdminLists(adminLists) {
 
           const buffer = new WritableBuffer();
           const ftpClient = new FTPClient();
-          await ftpClient.access({ host, port, user, password });
-          await ftpClient.downloadTo(buffer, remoteFilePath);
+          try {
+            await ftpClient.access({ host, port, user, password });
+            await ftpClient.downloadTo(buffer, remoteFilePath);
+          } finally {
+            ftpClient.close();
+          }
           data = buffer.toString('utf8');
           break;
         }

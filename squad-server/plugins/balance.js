@@ -2,9 +2,7 @@ import DiscordBasePlugin from './discord-base-plugin.js';
 
 export default class Balance extends DiscordBasePlugin {
   static get description() {
-    return (
-      "The <code>Balance</code> plugin is used to move players between teams for improved balance."
-    );
+    return 'The <code>Balance</code> plugin is used to move players between teams for improved balance.';
   }
 
   static get defaultEnabled() {
@@ -27,7 +25,23 @@ export default class Balance extends DiscordBasePlugin {
       channelID: {
         required: true,
         description: 'Discord channel to send notifications to.',
-        default: ""
+        default: ''
+      },
+      ticketDifferenceLimit: {
+        required: false,
+        description: 'Alert admins when the ticket difference exceeds this limit. 0 disables.',
+        default: 150
+      },
+      ticketAlertCooldown: {
+        required: false,
+        description: 'Seconds before admins are re-alerted while the imbalance persists.',
+        default: 300
+      },
+      clanMinSize: {
+        required: false,
+        description:
+          'Minimum number of players sharing a prefix to be listed as a clan in the imbalance alert.',
+        default: 4
       }
     };
   }
@@ -37,20 +51,97 @@ export default class Balance extends DiscordBasePlugin {
 
     this.markedPlayers = [];
     this.announced = false;
+    this.lastTicketAlert = 0;
+    this.ticketAlertActive = false;
 
     this.onChatCommand = this.onChatCommand.bind(this);
     this.onRoundEnded = this.onRoundEnded.bind(this);
+    this.onSquadsUpdated = this.onSquadsUpdated.bind(this);
+    this.onNewGame = this.onNewGame.bind(this);
   }
 
   async mount() {
     this.server.on(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
     this.server.on('ROUND_ENDED', this.onRoundEnded);
+    this.server.on('UPDATED_SQUAD_INFORMATION', this.onSquadsUpdated);
+    this.server.on('NEW_GAME', this.onNewGame);
   }
 
   async unmount() {
-    this.server.removeEventListener(`CHAT_COMMAND:${this.options.command}`,
-                                    this.onChatCommand);
+    this.server.removeEventListener(`CHAT_COMMAND:${this.options.command}`, this.onChatCommand);
     this.server.removeEventListener('ROUND_ENDED', this.onRoundEnded);
+    this.server.removeEventListener('UPDATED_SQUAD_INFORMATION', this.onSquadsUpdated);
+    this.server.removeEventListener('NEW_GAME', this.onNewGame);
+  }
+
+  onNewGame() {
+    this.ticketAlertActive = false;
+  }
+
+  getClansOnTeam(teamID, minSize) {
+    const counts = new Map();
+    for (const player of this.server.players) {
+      if (player.teamID !== teamID) continue;
+      const prefix = player.prefix.replace(/\W/g, '').toLowerCase();
+      if (!prefix) continue;
+      counts.set(prefix, (counts.get(prefix) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .filter(([, count]) => count >= minSize)
+      .sort((a, b) => b[1] - a[1]);
+  }
+
+  isAdmin(steamID) {
+    return steamID in this.server.admins && this.server.admins[steamID].chat;
+  }
+
+  async onSquadsUpdated() {
+    if (this.server.currentLayer?.gamemode === 'Invasion') return;
+    if (this.markedPlayers.length > 0) return;
+    if (!this.options.ticketDifferenceLimit) return;
+
+    const [t1, t2] = this.server.tickets;
+    if (t1 === undefined || t2 === undefined) return;
+    const diff = Math.abs(t1 - t2);
+    const teams = this.server.currentTeams;
+
+    if (diff < this.options.ticketDifferenceLimit) {
+      if (this.ticketAlertActive)
+        this.verbose(1, `Ticket imbalance resolved (difference ${diff}).`);
+      this.ticketAlertActive = false;
+      return;
+    }
+
+    const now = Date.now();
+    if (this.ticketAlertActive &&
+        now - this.lastTicketAlert < this.options.ticketAlertCooldown * 1000)
+      return;
+    this.ticketAlertActive = true;
+    this.lastTicketAlert = now;
+
+    const team1 = teams?.[0]?.faction || 'Team 1';
+    const team2 = teams?.[1]?.faction || 'Team 2';
+    const leadingTeamID = t1 > t2 ? 1 : 2;
+    const leadingTeam = t1 > t2 ? team1 : team2;
+    const clans = this.getClansOnTeam(leadingTeamID, this.options.clanMinSize);
+    let message =
+      'Balance alert!\n\n' +
+      `${leadingTeam} is leading by a large margin.\n`;
+    if (clans.length) {
+      message +=
+        '\nClans on leading team:\n' +
+        clans.map(([prefix, count]) => `- ${prefix} (${count} players)`).join('\n');
+    }
+    else {
+      message += 'Consider balancing.';
+    }
+    this.verbose(1, `Ticket imbalance: ${team1} ${t1} vs ${team2} ${t2} (difference ${diff}).`);
+
+    for (const p of this.server.players) {
+      if (this.isAdmin(p.steamID)) {
+        await this.server.rcon.warn(p.steamID, message);
+      }
+    }
   }
 
   showStatus(admin) {
@@ -76,10 +167,10 @@ export default class Balance extends DiscordBasePlugin {
     // - Up to 3 chars allowed before clan name
     // - Clan name must be separate from other words
     const regex = new RegExp(`^.{0,3}\\b${name}\\b`, 'i');
-    let teams = [[],[]];
+    const teams = [[], []];
     for (const player of this.server.players) {
       if (player.name.toLowerCase().match(regex)) {
-        teams[player.teamID-1].push(player);
+        teams[player.teamID - 1].push(player);
       }
     }
     if (teams[0].length === teams[1].length) {
@@ -167,13 +258,13 @@ export default class Balance extends DiscordBasePlugin {
 
   showHelp(admin) {
     const help =
-          '!balance commands:\n' +
-          ' clan XXX\n' +
-          ' player XXX\n' +
-          ' squad N\n' +
-          ' clear\n' +
-          ' clear XXX\n' +
-          ' list\n';
+      '!balance commands:\n' +
+      ' clan XXX\n' +
+      ' player XXX\n' +
+      ' squad N\n' +
+      ' clear\n' +
+      ' clear XXX\n' +
+      ' list\n';
     this.server.rcon.warn(admin.eosID, help);
   }
 
@@ -214,16 +305,16 @@ export default class Balance extends DiscordBasePlugin {
   }
 
   async movePlayers(obj, info) {
-    let playerNames = [];
+    const playerNames = [];
     for (const player of obj.markedPlayers) {
       obj.server.rcon.switchTeam(player.eosID);
       playerNames.push(player.name);
     }
 
     obj.verbose(1, `Balancing ${playerNames}`);
-    let ticket_diff = 0;
+    let ticketDiff = 0;
     if (info.winner)
-      ticket_diff = info.winner.tickets - info.loser.tickets;
+      ticketDiff = info.winner.tickets - info.loser.tickets;
 
     await obj.sendDiscordMessage({
       embed: {
@@ -236,7 +327,7 @@ export default class Balance extends DiscordBasePlugin {
           },
           {
             name: 'Ticket difference',
-            value: `${ticket_diff}`
+            value: `${ticketDiff}`
           },
           {
             name: 'Moved players',

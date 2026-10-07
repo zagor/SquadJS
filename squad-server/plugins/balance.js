@@ -81,8 +81,9 @@ export default class Balance extends DiscordBasePlugin {
   getClansOnTeam(teamID, minSize) {
     const counts = new Map();
     for (const player of this.server.players) {
-      if (player.teamID !== teamID) continue;
-      const prefix = player.prefix.replace(/\W/g, '').toLowerCase();
+      if (player.teamID != teamID) continue;
+      if (!player.prefix) continue;
+      const prefix = player.prefix.replace(/\W/g, '').toUpperCase();
       if (!prefix) continue;
       counts.set(prefix, (counts.get(prefix) || 0) + 1);
     }

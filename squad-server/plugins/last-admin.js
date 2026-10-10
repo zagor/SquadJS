@@ -15,6 +15,11 @@ export default class LastAdmin extends BasePlugin {
         required: false,
         description: '"Show admins" chat command.',
         default: 'admins'
+      },
+      welcome_delay: {
+        required: false,
+        description: 'Delay (in seconds) before showing the admin list to a joining admin.',
+        default: 5
       }
     };
   }
@@ -100,7 +105,8 @@ export default class LastAdmin extends BasePlugin {
 
   onPlayerPrefix(info) {
     if (!this.isAdmin(info.player.steamID)) return;
-    this.showAdmins(info.player.eosID, info, `Welcome admin!\n\n`);
+    setTimeout(() => this.showAdmins(info.player.eosID, info, `Welcome admin!\n\n`),
+      this.options.welcome_delay * 1000);
   }
 
   onPlayerTeamChange(info) {

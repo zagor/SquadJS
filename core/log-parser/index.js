@@ -99,13 +99,9 @@ export default class LogParser extends EventEmitter {
     Logger.verbose(
       'LogParser',
       1,
-      `Lines parsed per minute: ${
-        this.linesPerMinute
-      } lines per minute | Matching lines per minute: ${
-        this.matchingLinesPerMinute
-      } matching lines per minute | Average matching latency: ${
-        this.matchingLatency / this.matchingLinesPerMinute
-      }ms`
+      `Lines parsed: ${ this.linesPerMinute } | ` +
+      `Matching lines: ${ this.matchingLinesPerMinute } | ` +
+      `Average matching latency: ${ Math.round(this.matchingLatency / this.matchingLinesPerMinute) } ms`
     );
     this.linesPerMinute = 0;
     this.matchingLinesPerMinute = 0;

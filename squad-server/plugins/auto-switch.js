@@ -38,6 +38,7 @@ export default class AutoSwitch extends BasePlugin {
   constructor(server, options, connectors) {
     super(server, options, connectors);
     this.onPlayerPrefix = this.onPlayerPrefix.bind(this);
+    this.onPlayersUpdated = this.onPlayersUpdated.bind(this);
     this.opt_outs = [];
     for (const s of this.options.opt_out) {
       this.opt_outs.push(s.replace(/\W/g, '').toLowerCase());
@@ -71,10 +72,31 @@ export default class AutoSwitch extends BasePlugin {
 
   async mount() {
     this.server.on('PLAYER_PREFIX', this.onPlayerPrefix);
+    this.server.on('UPDATED_PLAYER_INFORMATION', this.onPlayersUpdated);
+    // Fill in players already in the list when the plugin mounts.
+    this.onPlayersUpdated();
   }
 
   async unmount() {
     this.server.removeEventListener(`PLAYER_PREFIX`, this.onPlayerPrefix);
+    this.server.removeEventListener('UPDATED_PLAYER_INFORMATION', this.onPlayersUpdated);
+  }
+
+  // Set player.prefix from the persisted cache for players whose
+  // PLAYER_PREFIX event has not been seen this session (e.g. after a restart).
+  onPlayersUpdated() {
+    let count = 0;
+    for (const player of this.server.players) {
+      if (player.prefix) continue;
+      const cached = this.prefixCache.get(player.eosID);
+      if (!cached) continue;
+      // Only trust the cache if the current name still starts with that tag.
+      const normalizedName = (player.name || '').replace(/\W/g, '').toLowerCase();
+      if (!normalizedName.startsWith(cached)) continue;
+      player.prefix = cached;
+      count++;
+    }
+    if (count) this.verbose(2, `Restored prefix for ${count} players from cache.`);
   }
 
   async onPlayerPrefix(info) {
@@ -83,13 +105,8 @@ export default class AutoSwitch extends BasePlugin {
     const eosID = info.player.eosID;
     const teamID = info.player.teamID;
 
-    if (!prefix.length)
-      return;
+    if (!prefix.length) return;
     this.verbose(2, `prefix:${info.player.prefix} suffix:${info.player.suffix}`);
-    if (this.opt_outs.includes(prefix)) {
-      this.verbose(1, "Prefix", info.player.prefix, "is opt-out.");
-      return;
-    }
 
     // Persist prefix if new or changed
     if (this.prefixCache.get(eosID) !== prefix) {
@@ -102,6 +119,10 @@ export default class AutoSwitch extends BasePlugin {
       }
     }
 
+    if (this.opt_outs.includes(prefix)) {
+      this.verbose(1, "Prefix", info.player.prefix, "is opt-out.");
+      return;
+    }
     // count friends on each team
     // use prefixCache as fallback for players whose PLAYER_PREFIX hasn't fired yet this session
     const friends = [0, 0, 0];

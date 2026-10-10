@@ -27,6 +27,11 @@ export default class Balance extends DiscordBasePlugin {
         description: 'Discord channel to send notifications to.',
         default: ''
       },
+      sendDiscordMessage: {
+        required: false,
+        description: 'Send a Discord message when players are moved.',
+        default: true
+      },
       ticketDifferenceLimit: {
         required: false,
         description: 'Alert admins when the ticket difference exceeds this limit. 0 disables.',
@@ -42,6 +47,28 @@ export default class Balance extends DiscordBasePlugin {
         description:
           'Minimum number of players sharing a prefix to be listed as a clan in the imbalance alert.',
         default: 4
+      },
+      autoBalanceEnabled: {
+        required: false,
+        description:
+          'Automatically move the largest clan on the winning team to the losing team after a ' +
+          'severely unbalanced round where no players were marked for balancing.',
+        default: true
+      },
+      autoBalanceTicketDifference: {
+        required: false,
+        description: 'Round-end ticket difference that must be reached to trigger automatic balancing.',
+        default: 200
+      },
+      autoBalanceClanMinSize: {
+        required: false,
+        description: 'Minimum number of players sharing a prefix to be considered a clan for automatic balancing.',
+        default: 2
+      },
+      autoBalanceMaxPlayers: {
+        required: false,
+        description: 'Maximum number of players moved by automatic balancing. Larger clans are split.',
+        default: 9
       }
     };
   }
@@ -53,6 +80,9 @@ export default class Balance extends DiscordBasePlugin {
     this.announced = false;
     this.lastTicketAlert = 0;
     this.ticketAlertActive = false;
+    this.autoBalanced = false;
+    this.autoBalanceClan = null;
+    this.roundInProgress = true;
 
     this.onChatCommand = this.onChatCommand.bind(this);
     this.onRoundEnded = this.onRoundEnded.bind(this);
@@ -76,14 +106,20 @@ export default class Balance extends DiscordBasePlugin {
 
   onNewGame() {
     this.ticketAlertActive = false;
+    this.announced = false;
+    this.roundInProgress = true;
+  }
+
+  normalizePrefix(prefix) {
+    if (!prefix) return '';
+    return prefix.replace(/\W/g, '').toUpperCase();
   }
 
   getClansOnTeam(teamID, minSize) {
     const counts = new Map();
     for (const player of this.server.players) {
-      if (player.teamID != teamID) continue;
-      if (!player.prefix) continue;
-      const prefix = player.prefix.replace(/\W/g, '').toUpperCase();
+      if (+player.teamID !== +teamID) continue;
+      const prefix = this.normalizePrefix(player.prefix);
       if (!prefix) continue;
       counts.set(prefix, (counts.get(prefix) || 0) + 1);
     }
@@ -100,6 +136,7 @@ export default class Balance extends DiscordBasePlugin {
     if (this.server.currentLayer?.gamemode === 'Invasion') return;
     if (this.markedPlayers.length > 0) return;
     if (!this.options.ticketDifferenceLimit) return;
+    if (!this.roundInProgress) return;
 
     const [t1, t2] = this.server.tickets;
     if (t1 === undefined || t2 === undefined) return;
@@ -294,15 +331,68 @@ export default class Balance extends DiscordBasePlugin {
       this.showHelp(admin);
   }
 
+  autoBalance(info) {
+    if (!this.options.autoBalanceEnabled) return false;
+    if (this.server.currentLayer?.gamemode === 'Invasion') return false;
+    if (!info?.winner || !info?.loser) return false;
+    if (this.markedPlayers.length > 0) return false;
+
+    const ticketDiff = +info.winner.tickets - +info.loser.tickets;
+    if (ticketDiff < this.options.autoBalanceTicketDifference) return false;
+
+    const winnerTeam = +info.winner.team;
+    if (winnerTeam !== 1 && winnerTeam !== 2) return false;
+
+    // Clans are sorted largest first; always pick the largest one.
+    const [clan] = this.getClansOnTeam(winnerTeam, this.options.autoBalanceClanMinSize);
+    if (!clan) {
+      this.verbose(1, `Auto-balance: ticket difference ${ticketDiff} but no clan on winning team.`);
+      return false;
+    }
+
+    // Cap the number of moved players; an oversized clan is split.
+    const [prefix, clanSize] = clan;
+    const players = this.server.players
+      .filter((p) => +p.teamID === winnerTeam && this.normalizePrefix(p.prefix) === prefix)
+      .slice(0, this.options.autoBalanceMaxPlayers);
+    if (players.length === 0) return false;
+    const split = players.length < clanSize;
+
+    const splitMessage = split
+      ? `${players.length} of ${clanSize} members will be moved, including you.\n`
+      : '';
+    const message =
+      'Team balance:\n' +
+      'Your clan has been auto-selected for balancing.\n' +
+      splitMessage +
+      'You will be team-switched shortly.';
+
+    for (const player of players) {
+      this.markedPlayers.push(player);
+      this.server.rcon.warn(player.eosID, message);
+    }
+
+    this.autoBalanced = true;
+    this.autoBalanceClan = split ? `${prefix} (${players.length} of ${clanSize})` : prefix;
+    this.verbose(
+      1,
+      `Auto-balance: Ticket difference ${ticketDiff}, ` +
+      `moving clan ${prefix} (${players.length}${split ? ` of ${clanSize}` : ''} players).`
+    );
+    return true;
+  }
+
   async onRoundEnded(info) {
     this.announced = false;
+    this.roundInProgress = false;
+    this.autoBalance(info);
     if (!this.markedPlayers.length) return;
     this.timeout = setTimeout(this.announceBalance, 2000, this);
     this.timeout = setTimeout(this.movePlayers, this.options.delay * 1000, this, info);
   }
 
   announceBalance(obj) {
-    obj.server.rcon.broadcast('Teams are being balanced.');
+    obj.server.rcon.broadcast(`Teams are being ${obj.autoBalanced ? 'auto ' : ''}balanced.`);
   }
 
   async movePlayers(obj, info) {
@@ -317,29 +407,38 @@ export default class Balance extends DiscordBasePlugin {
     if (info.winner)
       ticketDiff = info.winner.tickets - info.loser.tickets;
 
-    await obj.sendDiscordMessage({
-      embed: {
-        title: 'Team balancing performed',
-        color: obj.options.color,
-        fields: [
-          {
-            name: 'Layer',
-            value: obj.server.currentLayer.name
-          },
-          {
-            name: 'Ticket difference',
-            value: `${ticketDiff}`
-          },
-          {
-            name: 'Moved players',
-            value: playerNames.join('\n')
-          }
-        ],
-        footer: '',
-        timestamp: info.time.toISOString()
+    const fields = [
+      {
+        name: 'Layer',
+        value: obj.server.currentLayer.name
+      },
+      {
+        name: 'Ticket difference',
+        value: `${ticketDiff}`
       }
+    ];
+    if (obj.autoBalanced && obj.autoBalanceClan)
+      fields.push({ name: 'Clan', value: obj.autoBalanceClan });
+    fields.push({
+      name: 'Moved players',
+      value: playerNames.join('\n')
     });
 
-    obj.markedPlayers = [];
+    try {
+      if (!obj.options.sendDiscordMessage) return;
+      await obj.sendDiscordMessage({
+        embed: {
+          title: obj.autoBalanced ? 'Automatic team balancing performed' : 'Team balancing performed',
+          color: obj.options.color,
+          fields,
+          footer: '',
+          timestamp: info.time.toISOString()
+        }
+      });
+    } finally {
+      obj.markedPlayers = [];
+      obj.autoBalanced = false;
+      obj.autoBalanceClan = null;
+    }
   }
 }

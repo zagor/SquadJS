@@ -227,6 +227,98 @@ export default class Balance extends DiscordBasePlugin {
       this.markPlayers(teams[1], admin);
   }
 
+  // Greedily moves whole units between teams until their player counts are as even as possible.
+  // If given, count holds the team sizes to balance, otherwise they are derived from the units.
+  pickUnitsToMove(units, count = null) {
+    if (!count) {
+      count = [0, 0, 0];
+      for (const u of units) count[u.team] += u.players.length;
+    }
+    const remaining = [...units];
+    const moved = [];
+    for (;;) {
+      const from = count[1] > count[2] ? 1 : 2;
+      const diff = Math.abs(count[1] - count[2]);
+      let best = null;
+      let bestDiff = diff;
+      for (const u of remaining) {
+        if (u.team !== from) continue;
+        const d = Math.abs(diff - 2 * u.players.length);
+        if (d < bestDiff) {
+          best = u;
+          bestDiff = d;
+        }
+      }
+      if (!best) break;
+      count[from] -= best.players.length;
+      count[3 - from] += best.players.length;
+      remaining.splice(remaining.indexOf(best), 1);
+      moved.push(best);
+    }
+    return moved;
+  }
+
+  // Evens out the total team sizes by moving players without prefix. Players in the same
+  // squad are assumed to be friends, so squads are never split, even if that leaves
+  // the teams slightly uneven.
+  balanceUnprefixed(moved) {
+    const movedPlayers = new Set(moved.flatMap((u) => u.players));
+    const total = [0, 0, 0];
+    const squads = new Map();
+    const units = [];
+    for (const player of this.server.players) {
+      const team = +player.teamID;
+      if (team !== 1 && team !== 2) continue;
+      total[movedPlayers.has(player) ? 3 - team : team]++;
+      if (this.normalizePrefix(player.prefix)) continue;
+      if (player.squadID === null || player.squadID === undefined) {
+        units.push({ team, players: [player] });
+        continue;
+      }
+      const key = `${team}-${player.squadID}`;
+      if (!squads.has(key)) {
+        squads.set(key, { team, players: [] });
+        units.push(squads.get(key));
+      }
+      squads.get(key).players.push(player);
+    }
+
+    return this.pickUnitsToMove(units, total);
+  }
+
+  balanceClans(admin) {
+    const clans = new Map();
+    for (const player of this.server.players) {
+      const prefix = this.normalizePrefix(player.prefix);
+      if (!prefix || (+player.teamID !== 1 && +player.teamID !== 2)) continue;
+      if (!clans.has(prefix)) clans.set(prefix, [[], []]);
+      clans.get(prefix)[player.teamID - 1].push(player);
+    }
+
+    const multi = [];
+    const solo = [];
+    for (const teams of clans.values()) {
+      const total = teams[0].length + teams[1].length;
+      for (const team of [1, 2]) {
+        const players = teams[team - 1];
+        if (players.length) (total > 1 ? multi : solo).push({ team, players });
+      }
+    }
+
+    const moved = [...this.pickUnitsToMove(multi), ...this.pickUnitsToMove(solo)];
+    moved.push(...this.balanceUnprefixed(moved));
+    const players = moved.flatMap((u) => u.players);
+    if (players.length === 0) {
+      this.server.rcon.warn(admin.eosID, 'Balancing:\nClans are already as balanced as possible.');
+      return;
+    }
+    if (!this.announced) {
+      this.server.rcon.broadcast('Teams will be balanced next round.');
+      this.announced = true;
+    }
+    this.markPlayers(players, admin);
+  }
+
   markSquad(squadID, admin) {
     const players = [];
 
@@ -299,6 +391,7 @@ export default class Balance extends DiscordBasePlugin {
   showHelp(admin) {
     const help =
       '!balance commands:\n' +
+      ' clans\n' +
       ' clan XXX\n' +
       ' player XXX\n' +
       ' squad N\n' +
@@ -315,7 +408,9 @@ export default class Balance extends DiscordBasePlugin {
     const admin = info.player;
     const words = info.message.toLowerCase().split(' ');
 
-    if (words[0] === 'clan' && words.length > 1)
+    if (words[0] === 'clans')
+      this.balanceClans(admin);
+    else if (words[0] === 'clan' && words.length > 1)
       this.markClan(words[1].toLowerCase(), admin);
     else if (words[0] === 'squad' && words.length > 1)
       this.markSquad(parseInt(words[1].toLowerCase()), admin);

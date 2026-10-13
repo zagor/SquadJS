@@ -65,6 +65,11 @@ export default class Balance extends DiscordBasePlugin {
         description: 'Minimum number of players sharing a prefix to be considered a clan for automatic balancing.',
         default: 2
       },
+      autoBalanceAfterSeed: {
+        required: false,
+        description: 'Should we do automatic balancing after the first round that follows seed?',
+        default: false
+      },
       autoBalanceMaxPlayers: {
         required: false,
         description:
@@ -433,6 +438,11 @@ export default class Balance extends DiscordBasePlugin {
     if (this.server.currentLayer?.gamemode === 'Invasion') return false;
     if (!info?.winner || !info?.loser) return false;
     if (this.markedPlayers.length > 0) return false;
+    if (!this.options.autoBalanceAfterSeed
+        && this.server.layerHistory?.[1]?.layer?.gamemode === 'Seed') {
+      this.verbose(1, 'Auto-balance: skipped, first round after seed.');
+      return false;
+    }
 
     const ticketDiff = +info.winner.tickets - +info.loser.tickets;
     if (ticketDiff < this.options.autoBalanceTicketDifference) return false;
@@ -475,7 +485,7 @@ export default class Balance extends DiscordBasePlugin {
       : '';
     const message =
       'Team balance:\n' +
-      'Your clan has been auto-selected for balancing.\n' +
+      `${prefix} have been selected for auto balancing.\n` +
       splitMessage +
       'You will be team-switched shortly.';
 

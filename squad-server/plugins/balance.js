@@ -67,7 +67,9 @@ export default class Balance extends DiscordBasePlugin {
       },
       autoBalanceMaxPlayers: {
         required: false,
-        description: 'Maximum number of players moved by automatic balancing. Larger clans are split.',
+        description:
+          'Maximum clan size moved as a whole by automatic balancing. For larger clans, only the ' +
+          'clan members in the squad with the most clan members are moved.',
         default: 9
       }
     };
@@ -350,11 +352,26 @@ export default class Balance extends DiscordBasePlugin {
       return false;
     }
 
-    // Cap the number of moved players; an oversized clan is split.
     const [prefix, clanSize] = clan;
-    const players = this.server.players
-      .filter((p) => +p.teamID === winnerTeam && this.normalizePrefix(p.prefix) === prefix)
-      .slice(0, this.options.autoBalanceMaxPlayers);
+    const clanPlayers = this.server.players.filter(
+      (p) => +p.teamID === winnerTeam && this.normalizePrefix(p.prefix) === prefix
+    );
+    let players = clanPlayers;
+
+    // An oversized clan is split: move only the clan members of the squad
+    // containing the most clan members.
+    if (clanPlayers.length > this.options.autoBalanceMaxPlayers) {
+      const squads = new Map();
+      for (const p of clanPlayers) {
+        if (p.squadID === null || p.squadID === undefined) continue;
+        const key = +p.squadID;
+        if (!squads.has(key)) squads.set(key, []);
+        squads.get(key).push(p);
+      }
+      const [largestSquad] = [...squads.values()].sort((a, b) => b.length - a.length);
+      players = largestSquad || [];
+      players = players.slice(0, this.options.autoBalanceMaxPlayers);
+    }
     if (players.length === 0) return false;
     const split = players.length < clanSize;
 

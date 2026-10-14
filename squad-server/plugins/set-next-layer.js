@@ -29,6 +29,12 @@ export default class SetNextLayer extends BasePlugin {
         description: 'Path + filename to the LayerRotation.cfg file',
         default: "LayerRotation.cfg"
       },
+      post_seed_layer_cfg: {
+        required: false,
+        description:
+          'Path + filename to an optional layer file used to pick the first round after seed. Empty to disable.',
+        default: ''
+      },
       map_repeat_threshold: {
         required: false,
         description: 'How many maps are quarantined?',
@@ -62,6 +68,7 @@ export default class SetNextLayer extends BasePlugin {
     this.onNewGame = this.onNewGame.bind(this);
     this.onChatCommand = this.onChatCommand.bind(this);
     this.layers = [];
+    this.postSeedLayers = [];
     this.playedMaps = [];
     this.playedFactions = [];
     this.playedModes = [];
@@ -135,21 +142,30 @@ export default class SetNextLayer extends BasePlugin {
                                     this.onChatCommand);
   }
 
-  async readLayers() {
+  async readLayerFile(path) {
+    const layers = [];
     try {
-      const fileStream = createReadStream(this.options.layer_rotation_cfg);
-      const rl = createInterface({input: fileStream, crlfDelay: Infinity });
-      this.layers = [];
-      let count = 0;
+      const fileStream = createReadStream(path);
+      const rl = createInterface({ input: fileStream, crlfDelay: Infinity });
       for await (const line of rl) {
-        this.layers.push(line);
-        count++;
+        if (line.trim()) layers.push(line);
       }
-      this.verbose(2, `Read ${count} layers from ${this.options.layer_rotation_cfg}`);
-    }
-    catch (error) {
+      this.verbose(2, `Read ${layers.length} layers from ${path}`);
+    } catch (error) {
       this.verbose(1, '*** error:', error);
     }
+    return layers;
+  }
+
+  async readLayers() {
+    this.layers = await this.readLayerFile(this.options.layer_rotation_cfg);
+    this.postSeedLayers = this.options.post_seed_layer_cfg
+      ? await this.readLayerFile(this.options.post_seed_layer_cfg)
+      : [];
+  }
+
+  isSeedLayer() {
+    return !!this.server.currentLayer?.name?.toLowerCase().includes('seed');
   }
 
   async onNewGame(info) {
@@ -196,23 +212,27 @@ export default class SetNextLayer extends BasePlugin {
     try {
       // "Mutaha_Invasion_v1 ADF+Mechanized INS+LightInfantry"
       const nextMapRegex = /(\w+)_(\w+)_(\w+) +(\w+)\+?(\w+)? +(\w+)\+?(\w+)?/;
-      const layersList = this.layers.slice();
+      const usePostSeed = this.postSeedLayers.length > 0 && this.isSeedLayer();
+      const layersList = (usePostSeed ? this.postSeedLayers : this.layers).slice();
+      if (usePostSeed) this.verbose(2, 'Seed layer active, picking from post-seed layers.');
       let line = '';
 
       this.verbose(2, 'History:', this.playedMaps, this.playedFactions, this.playedModes);
 
       while (layersList.length) {
         const lineNum = Math.floor(Math.random() * layersList.length);
-        line = this.layers[lineNum];
+        line = layersList[lineNum];
         const parts = line.split(' ');
         if (parts.length > 3) {
           this.verbose(1, `*** error: Format error in line ${lineNum}: ${line}`);
+          layersList.splice(lineNum, 1);
           continue;
         }
 
         const fields = line.match(nextMapRegex);
         if (!fields) {
           this.verbose(1, '*** error: Regex did not match line:', line);
+          layersList.splice(lineNum, 1);
           continue;
         }
         const [, map, mode, version, faction1, , faction2] = fields;

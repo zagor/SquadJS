@@ -249,7 +249,6 @@ export default class VehicleClaims extends BasePlugin {
     }
     else {
       this.server.rcon.warn(info.player.eosID, "You don't have a vehicle to rescue.");
-      return;
     }
   }
 
@@ -443,8 +442,9 @@ export default class VehicleClaims extends BasePlugin {
         if (player.teamID == squad.teamID
             && player.squadID == squad.squadID
             && player.isLeader) {
-          squad.player = player
-          await this.onSquadCreated(squad);
+          // Copy: assigning player onto the shared squad object creates a
+          // player <-> squad cycle that breaks serialization (socket.io).
+          await this.onSquadCreated({ ...squad, player });
           break;
         }
       }
@@ -516,6 +516,8 @@ export default class VehicleClaims extends BasePlugin {
       lockTime: (squadList[0].locked == 'True') ?
         new Date().getTime() : undefined
     };
+
+    if (info.squadName.match(/^Squad \d+$/)) return;
 
     const vic = this.getVicFromName(info.squadName, info.player, true);
     if (vic) {

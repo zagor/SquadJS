@@ -150,8 +150,10 @@ export default class AutoSwitch extends BasePlugin {
         this.verbose(1, `Friend team is already ${players[friendTeam]}, can't switch.`);
       }
       else {
-        this.server.rcon.switchTeam(info.player.eosID);
+        await this.server.rcon.switchTeam(info.player.eosID);
         this.verbose(1, `Switched ${info.player.name}`);
+        // keep the cached team data current for other plugins
+        await this.server.updatePlayerList();
       }
     }
     else {

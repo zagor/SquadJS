@@ -266,6 +266,15 @@ export default class SquadServer extends EventEmitter {
       this.emit('PLAYER_CONNECTED', data);
     });
 
+    this.logParser.on('AUTO_SQUAD_CREATED', async (data) => {
+      data.player = await this.getPlayerByEOSID(data.eosID, true);
+
+      for (const k in data) if (playerIdNames.includes(k)) delete data[k];
+      delete data.playerName;
+
+      this.emit('AUTO_SQUAD_CREATED', data);
+    });
+
     this.logParser.on('PLAYER_PREFIX', async (data) => {
       data.player = await this.getPlayerByEOSID(data.eosID, true);
       if (data.player?.suffix) {

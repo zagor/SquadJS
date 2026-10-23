@@ -12,6 +12,10 @@ export default class DisbandParty extends BasePlugin {
     return false;
   }
 
+  static get optionsSpecification() {
+    return {};
+  }
+
   constructor(server, options, connectors) {
     super(server, options, connectors);
     this.onSquadCreated = this.onSquadCreated.bind(this);

@@ -60,12 +60,14 @@ export default class SquadServer extends EventEmitter {
     this.setupLogParser();
 
     this.updatePlayerList = this.updatePlayerList.bind(this);
-    this.updatePlayerListInterval = 30 * 1000;
+    this.updatePlayerListInterval = 10 * 1000;
     this.updatePlayerListTimeout = null;
+    this.updatePlayerListPromise = null;
 
     this.updateSquadList = this.updateSquadList.bind(this);
-    this.updateSquadListInterval = 30 * 1000;
+    this.updateSquadListInterval = 10 * 1000;
     this.updateSquadListTimeout = null;
+    this.updateSquadListPromise = null;
 
     this.updateLayerInformation = this.updateLayerInformation.bind(this);
     this.updateLayerInformationInterval = 30 * 1000;
@@ -375,6 +377,32 @@ export default class SquadServer extends EventEmitter {
       this.emit('PLAYER_UNPOSSESS', data);
     });
 
+    this.logParser.on('VEHICLE_DAMAGED', async (data) => {
+      data.attacker = await this.getPlayerByEOSID(data.attackerEOSID);
+      data.victim =
+        this.players.find(
+          (p) => p.name === data.victimVehicle || p.suffix === data.victimVehicle
+        ) || null;
+      data.teamkill = Boolean(
+        data.victim &&
+          data.attacker &&
+          data.victim.teamID === data.attacker.teamID &&
+          data.victim.eosID !== data.attacker.eosID
+      );
+
+      delete data.attackerName;
+
+      this.emit('VEHICLE_DAMAGED', data);
+    });
+
+    this.logParser.on('DEPLOYABLE_TAKE_DAMAGE', async (data) => {
+      data.attacker = await this.getPlayerByEOSID(data.attackerEOSID);
+
+      delete data.attackerName;
+
+      this.emit('DEPLOYABLE_TAKE_DAMAGE', data);
+    });
+
     this.logParser.on('ROUND_ENDED', async (data) => {
       this.emit('ROUND_ENDED', data);
     });
@@ -484,7 +512,17 @@ export default class SquadServer extends EventEmitter {
     this.admins = await fetchAdminLists(this.options.adminLists);
   }
 
-  async updatePlayerList() {
+  // Concurrent callers share one in-flight refresh instead of racing each other.
+  updatePlayerList() {
+    if (!this.updatePlayerListPromise) {
+      this.updatePlayerListPromise = this.doUpdatePlayerList().finally(() => {
+        this.updatePlayerListPromise = null;
+      });
+    }
+    return this.updatePlayerListPromise;
+  }
+
+  async doUpdatePlayerList() {
     if (this.updatePlayerListTimeout) clearTimeout(this.updatePlayerListTimeout);
 
     Logger.verbose('SquadServer', 3, `Updating player list...`);
@@ -550,7 +588,17 @@ export default class SquadServer extends EventEmitter {
     this.updatePlayerListTimeout = setTimeout(this.updatePlayerList, this.updatePlayerListInterval);
   }
 
-  async updateSquadList() {
+  // Concurrent callers share one in-flight refresh instead of racing each other.
+  updateSquadList() {
+    if (!this.updateSquadListPromise) {
+      this.updateSquadListPromise = this.doUpdateSquadList().finally(() => {
+        this.updateSquadListPromise = null;
+      });
+    }
+    return this.updateSquadListPromise;
+  }
+
+  async doUpdateSquadList() {
     if (this.updateSquadListTimeout) clearTimeout(this.updateSquadListTimeout);
 
     Logger.verbose('SquadServer', 3, `Updating squad list...`);

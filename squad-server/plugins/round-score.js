@@ -937,7 +937,7 @@ export default class RoundScore extends DiscordBasePlugin {
               String(w.squadName).trim()
             );
             const nameLabel = isDefaultName ? '' : ` "${esc(w.squadName)}"`;
-            return `**${a.title}:** Sq ${w.squadID}${nameLabel} (${w.formatted})`;
+            return `**${a.title}:**\nSq ${w.squadID}${nameLabel} (${w.formatted})`;
           })
           .join('\n');
         fields.push({

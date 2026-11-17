@@ -977,25 +977,25 @@ export default class RoundScore extends DiscordBasePlugin {
     }
 
     const linesByEOS = new Map();
-    const pushLine = (eosID, line) => {
+    const pushLine = (eosID, kind, line) => {
       if (!onlineByEOS.has(eosID)) return;
-      let list = linesByEOS.get(eosID);
-      if (!list) {
-        list = [];
-        linesByEOS.set(eosID, list);
+      let entry = linesByEOS.get(eosID);
+      if (!entry) {
+        entry = { player: [], squad: [] };
+        linesByEOS.set(eosID, entry);
       }
-      if (!list.includes(line)) list.push(line);
+      if (!entry[kind].includes(line)) entry[kind].push(line);
     };
 
     for (const award of awards.individualAwards) {
       award.winners.forEach((winner, idx) => {
-        pushLine(winner.eosID, `#${idx + 1} ${award.title}: ${winner.formatted}`);
+        pushLine(winner.eosID, 'player', `#${idx + 1} ${award.title}: ${winner.formatted}`);
       });
     }
 
     for (const award of awards.squadAwards) {
       const sq = award.winner;
-      const line = `Your squad had: ${award.title}: ${sq.formatted}`;
+      const line = `${award.title}: ${sq.formatted}`;
       for (const player of onlinePlayers) {
         if (!player?.eosID) continue;
         if (
@@ -1003,16 +1003,17 @@ export default class RoundScore extends DiscordBasePlugin {
           Number(player.squadID) === sq.squadID &&
           sq.contributors.has(player.eosID)
         ) {
-          pushLine(player.eosID, line);
+          pushLine(player.eosID, 'squad', line);
         }
       }
     }
 
     const messages = new Map();
-    for (const [eosID, list] of linesByEOS.entries()) {
-      if (list.length > 0) {
-        messages.set(eosID, ['Round Awards:', ...list].join('\n'));
-      }
+    for (const [eosID, { player, squad }] of linesByEOS.entries()) {
+      const list = [];
+      if (player.length > 0) list.push(['Player Awards:', ...player].join('\n'));
+      if (squad.length > 0) list.push(['Squad Awards:', ...squad].join('\n'));
+      if (list.length > 0) messages.set(eosID, list);
     }
     return messages;
   }
@@ -1046,13 +1047,18 @@ export default class RoundScore extends DiscordBasePlugin {
 
       if (this.options.enableInGameWarns && this.server.rcon?.warn) {
         const warnMessages = this.buildPlayerWarnMessages(awards);
-        for (const [eosID, message] of warnMessages.entries()) {
-          try {
-            await this.server.rcon.warn(eosID, message);
-          } catch (err) {
-            this.verbose(1, `Failed to send round highlight warn to ${eosID}: ${err.message}`);
-          }
-        }
+        await Promise.all(
+          [...warnMessages.entries()].map(async ([eosID, messages]) => {
+            for (let i = 0; i < messages.length; i++) {
+              if (i > 0) await new Promise((resolve) => setTimeout(resolve, 5000));
+              try {
+                await this.server.rcon.warn(eosID, messages[i]);
+              } catch (err) {
+                this.verbose(1, `Failed to send round highlight warn to ${eosID}: ${err.message}`);
+              }
+            }
+          })
+        );
       }
     } finally {
       this.resetRoundStats(info?.time instanceof Date ? info.time : new Date());

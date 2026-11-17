@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
+    "@napi-rs/canvas": "^1.1.1",
     "axios": "^0.21.1",
     "basic-ftp": "^4.6.6",
     "core": "1.0.0",

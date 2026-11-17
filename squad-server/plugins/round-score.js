@@ -1,3 +1,6 @@
+import { AttachmentBuilder } from 'discord.js';
+import { createCanvas } from '@napi-rs/canvas';
+
 import DiscordBasePlugin from './discord-base-plugin.js';
 
 const SOLDIER_PAWN_REGEX = /^BP_Soldier_/i;
@@ -169,12 +172,12 @@ export default class RoundScore extends DiscordBasePlugin {
         required: false,
         description:
           'The ID of the Discord channel to post round score summaries to (leave empty to disable Discord posting).',
-        default: '',
+        default: ''
       },
       color: {
         required: false,
         description: 'The color of the Discord embed.',
-        default: 0xffc40b,
+        default: 0xffc40b
       },
       enableInGameWarns: {
         required: false,
@@ -307,6 +310,8 @@ export default class RoundScore extends DiscordBasePlugin {
     this.playerStats = new Map();
     this.squadStats = new Map();
     this.activeVehicleByEOSID = new Map();
+    this.killsByTeam = { 1: 0, 2: 0 };
+    this.timeline = [];
   }
 
   ensurePlayerStat(player) {
@@ -398,8 +403,10 @@ export default class RoundScore extends DiscordBasePlugin {
     if (this.activeVehicleByEOSID.has(player.eosID)) {
       return Boolean(this.activeVehicleByEOSID.get(player.eosID)?.pawn);
     }
-    return RoundScore.isMobileVehiclePawn(player.vehicle) ||
-      RoundScore.isMobileVehiclePawn(player.possessClassname);
+    return (
+      RoundScore.isMobileVehiclePawn(player.vehicle) ||
+      RoundScore.isMobileVehiclePawn(player.possessClassname)
+    );
   }
 
   onNewGame(data) {
@@ -449,8 +456,7 @@ export default class RoundScore extends DiscordBasePlugin {
       attacker.vehicle ||
       null;
     const normalizedPawn = rawPawn ? rawPawn.replace(/_C$/, '') : null;
-    if (!victim && normalizedPawn && weapon?.replace(/_C$/, '').startsWith(normalizedPawn))
-      return;
+    if (!victim && normalizedPawn && weapon?.replace(/_C$/, '').startsWith(normalizedPawn)) return;
 
     const stat = this.ensurePlayerStat(attacker);
     stat.playerDamage += damage;
@@ -507,6 +513,7 @@ export default class RoundScore extends DiscordBasePlugin {
 
     const attackerStat = this.ensurePlayerStat(attacker);
     attackerStat.kills += 1;
+    if (this.killsByTeam[attacker.teamID] !== undefined) this.killsByTeam[attacker.teamID] += 1;
     attackerStat.currentKillStreak += 1;
     if (attackerStat.currentKillStreak > attackerStat.maxKillStreak) {
       attackerStat.maxKillStreak = attackerStat.currentKillStreak;
@@ -583,7 +590,121 @@ export default class RoundScore extends DiscordBasePlugin {
     if (sq && data.newName) sq.squadName = data.newName;
   }
 
+  recordTimelineSample(time = new Date()) {
+    const tickets = this.server.tickets;
+    if (!Array.isArray(tickets) || tickets.length < 2) return;
+    this.timeline.push({
+      minutes: Math.max(0, (time.getTime() - this.roundStartTime.getTime()) / 60000),
+      tickets: [Number(tickets[0]) || 0, Number(tickets[1]) || 0],
+      kills: [this.killsByTeam[1], this.killsByTeam[2]]
+    });
+  }
+
+  renderTimelineChart(info = {}) {
+    const endMin = Math.max(
+      0,
+      ((info?.time instanceof Date ? info.time : new Date()).getTime() -
+        this.roundStartTime.getTime()) /
+        60000
+    );
+    const points = this.timeline.filter((p) => p.minutes <= endMin + 1);
+    if (points.length < 2) return null;
+
+    const W = 900;
+    const H = 450;
+    const m = { l: 60, r: 20, t: 50, b: 50 };
+    const ctx = createCanvas(W, H);
+    const g = ctx.getContext('2d');
+    g.fillStyle = '#2b2d31';
+    g.fillRect(0, 0, W, H);
+
+    const maxX = Math.max(1, points.at(-1).minutes);
+    const maxY = Math.max(1, ...points.flatMap((p) => [...p.tickets, ...p.kills]));
+    const x = (v) => m.l + (v / maxX) * (W - m.l - m.r);
+    const y = (v) => H - m.b - (v / maxY) * (H - m.t - m.b);
+
+    g.font = '13px sans-serif';
+    g.fillStyle = '#b5bac1';
+    g.strokeStyle = '#3f4147';
+    g.lineWidth = 1;
+    g.textAlign = 'right';
+    for (let i = 0; i <= 5; i++) {
+      const v = (maxY * i) / 5;
+      g.beginPath();
+      g.moveTo(m.l, y(v));
+      g.lineTo(W - m.r, y(v));
+      g.stroke();
+      g.fillText(String(Math.round(v)), m.l - 8, y(v) + 4);
+    }
+    g.textAlign = 'center';
+    const xStep = Math.max(1, Math.ceil(maxX / 10));
+    for (let v = 0; v <= maxX; v += xStep) g.fillText(String(v), x(v), H - m.b + 18);
+    g.fillText('Round time (minutes)', (W + m.l - m.r) / 2, H - 10);
+
+    const allianceColors = {
+      BLUFOR: '#4da6ff',
+      REDFOR: '#ff6b6b',
+      INDEPENDENT: '#5fd37a',
+      PAC: '#ffc94d'
+    };
+    const colors = [1, 2].map(
+      (id, i) =>
+        allianceColors[this.server.currentTeams?.[id - 1]?.unit?.alliance] ||
+        ['#4da6ff', '#ff6b6b'][i]
+    );
+    // Keep the teams distinguishable when both share an alliance.
+    if (colors[0] === colors[1]) colors[1] = '#ffffff';
+    const series = [];
+    for (const t of [0, 1]) {
+      series.push({
+        label: `${this.teamLabel(t + 1)} tickets`,
+        color: colors[t],
+        key: 'tickets',
+        t
+      });
+      series.push({
+        label: `${this.teamLabel(t + 1)} kills`,
+        color: colors[t],
+        key: 'kills',
+        t,
+        dash: [6, 4]
+      });
+    }
+    g.lineWidth = 2.5;
+    for (const s of series) {
+      g.strokeStyle = s.color;
+      g.setLineDash(s.dash || []);
+      g.beginPath();
+      points.forEach((p, i) => {
+        const px = x(p.minutes);
+        const py = y(p[s.key][s.t]);
+        if (i === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      });
+      g.stroke();
+    }
+    g.setLineDash([]);
+
+    g.textAlign = 'left';
+    let lx = m.l;
+    for (const s of series) {
+      g.strokeStyle = s.color;
+      g.setLineDash(s.dash || []);
+      g.beginPath();
+      g.moveTo(lx, 25);
+      g.lineTo(lx + 28, 25);
+      g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = '#dbdee1';
+      g.fillText(s.label, lx + 34, 30);
+      lx += 40 + g.measureText(s.label).width + 14;
+    }
+
+    return ctx.toBuffer('image/png');
+  }
+
   onUpdatedSquadInformation() {
+    this.recordTimelineSample();
     if (!Array.isArray(this.server.squads)) return;
     for (const liveSquad of this.server.squads) {
       const key = `${Number(liveSquad.teamID)}:${Number(liveSquad.squadID)}`;
@@ -794,9 +915,7 @@ export default class RoundScore extends DiscordBasePlugin {
     if (populatedIndividual.length > 0) {
       fields.push({ name: '\u200b', value: '**── Top Players ──**', inline: false });
       for (const award of populatedIndividual) {
-        const ranks = award.winners
-          .map((w) => `${w.formatted}: **${esc(w.name)}**`)
-          .join('\n');
+        const ranks = award.winners.map((w) => `${w.formatted}: **${esc(w.name)}**`).join('\n');
         fields.push({
           name: truncateEmbedText(award.title, 256),
           value: truncateEmbedText(ranks, 1024),
@@ -832,9 +951,7 @@ export default class RoundScore extends DiscordBasePlugin {
     if (shameAwards.length > 0) {
       fields.push({ name: '\u200b', value: '**── Rough Round ──**', inline: false });
       for (const award of shameAwards) {
-        const ranks = award.winners
-          .map((w) => `${w.formatted}: **${esc(w.name)}**`)
-          .join('\n');
+        const ranks = award.winners.map((w) => `${w.formatted}: **${esc(w.name)}**`).join('\n');
         fields.push({
           name: truncateEmbedText(award.title, 256),
           value: truncateEmbedText(ranks, 1024),
@@ -907,8 +1024,19 @@ export default class RoundScore extends DiscordBasePlugin {
       if (this.channel) {
         try {
           const embed = this.formatDiscordEmbed(info, awards);
+          const files = [];
+          try {
+            const png = this.renderTimelineChart(info);
+            if (png) {
+              files.push(new AttachmentBuilder(png, { name: 'round-timeline.png' }));
+              embed.image = { url: 'attachment://round-timeline.png' };
+            }
+          } catch (err) {
+            this.verbose(1, `Failed to render round timeline chart: ${err.message}`);
+          }
           await this.sendDiscordMessage({
             embed,
+            files,
             allowedMentions: { parse: [] }
           });
         } catch (err) {

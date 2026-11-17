@@ -4,7 +4,15 @@ const SOLDIER_PAWN_REGEX = /^BP_Soldier_/i;
 const STATIC_DEPLOYABLE_PAWN_REGEX =
   /^SQDeployable|_Deployable|Emplaced|_Tripod|Bunker|Baseplate|^BP_FOBRadio|_Hab|AdminCam|^CameraMan|FlyingDrone|UAV/i;
 
-const formatInt = (val) => Math.round(val).toLocaleString('en-US');
+const formatInt = (val) => Math.round(val);
+
+const formatUnitType = (type) =>
+  String(type || '')
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ');
 
 function truncateEmbedText(text, maxLength = 1024) {
   const str = String(text || '\u200b');
@@ -19,73 +27,54 @@ const INDIVIDUAL_AWARD_DEFS = [
     key: 'kills',
     title: 'Most Kills',
     getValue: (p) => p.kills,
-    qualifies: (p) => p.kills >= 1,
-    format: (v) => `${v} kills`,
-    compactFormat: (v) => `${v}`
-  },
-  {
-    key: 'downs',
-    title: 'Most Downs',
-    getValue: (p) => p.downs,
-    qualifies: (p) => p.downs >= 1,
-    format: (v) => `${v} downs`,
-    compactFormat: (v) => `${v}`
+    qualifies: (p) => p.kills >= 1
   },
   {
     key: 'maxKillStreak',
     title: 'Longest Kill Streak',
     getValue: (p) => p.maxKillStreak,
-    qualifies: (p) => p.maxKillStreak >= 3,
-    format: (v) => `${v} kill streak`,
-    compactFormat: (v) => `${v}`
+    qualifies: (p) => p.maxKillStreak >= 3
   },
   {
     key: 'kdRatio',
     title: 'Best K/D Ratio',
     getValue: (p) => p.kills / Math.max(1, p.deaths),
     qualifies: (p, opts) => p.kills >= (Number(opts.minKillsForKD) || 5),
-    format: (v, p) => `${v.toFixed(2)} (${p.kills}K/${p.deaths}D)`,
-    compactFormat: (v, p) => `${v.toFixed(2)} · ${p.kills}/${p.deaths}`
+    format: (v) => v.toFixed(2)
   },
   {
     key: 'revives',
     title: 'Most Revives',
     getValue: (p) => p.revives,
-    qualifies: (p) => p.revives >= 1,
-    format: (v) => `${v} revives`,
-    compactFormat: (v) => `${v}`
+    qualifies: (p) => p.revives >= 1
   },
   {
     key: 'playerDamage',
     title: 'Most Damage to Players',
     getValue: (p) => p.playerDamage,
     qualifies: (p) => p.playerDamage >= 100,
-    format: (v) => `${formatInt(v)} dmg`,
-    compactFormat: (v) => formatInt(v)
+    format: formatInt
   },
   {
     key: 'vehicleDamage',
     title: 'Most Damage to Vehicles',
     getValue: (p) => p.vehicleDamage,
     qualifies: (p) => p.vehicleDamage >= 100,
-    format: (v) => `${formatInt(v)} dmg`,
-    compactFormat: (v) => formatInt(v)
+    format: formatInt
   },
   {
     key: 'damageByVehicle',
     title: 'Most Damage by Vehicle',
     getValue: (p) => p.damageByVehicle,
     qualifies: (p) => p.damageByVehicle >= 100,
-    format: (v) => `${formatInt(v)} dmg`,
-    compactFormat: (v) => formatInt(v)
+    format: formatInt
   },
   {
     key: 'emplacementDamage',
     title: 'Most Damage to Emplacements',
     getValue: (p) => p.emplacementDamage,
     qualifies: (p) => p.emplacementDamage >= 50,
-    format: (v) => `${formatInt(v)} dmg`,
-    compactFormat: (v) => formatInt(v)
+    format: formatInt
   }
 ];
 
@@ -94,15 +83,13 @@ const SHAME_AWARD_DEFS = [
     key: 'deaths',
     title: 'Most Deaths',
     getValue: (p) => p.deaths,
-    qualifies: (p) => p.deaths >= 1,
-    format: (v) => `${v} deaths`
+    qualifies: (p) => p.deaths >= 1
   },
   {
     key: 'teamkills',
     title: 'Most Teamkills',
     getValue: (p) => p.teamkills,
-    qualifies: (p) => p.teamkills >= 1,
-    format: (v) => `${v} TKs`
+    qualifies: (p) => p.teamkills >= 1
   }
 ];
 
@@ -111,64 +98,54 @@ const SQUAD_AWARD_DEFS = [
     key: 'kills',
     title: 'Most Kills',
     getValue: (s) => s.kills,
-    qualifies: (s) => s.kills >= 3,
-    format: (v) => `${v} kills`
-  },
-  {
-    key: 'downs',
-    title: 'Most Downs',
-    getValue: (s) => s.downs,
-    qualifies: (s) => s.downs >= 5,
-    format: (v) => `${v} downs`
+    qualifies: (s) => s.kills >= 3
   },
   {
     key: 'kdRatio',
     title: 'Best K/D Ratio',
     getValue: (s) => s.kills / Math.max(1, s.deaths),
     qualifies: (s, opts) => s.kills >= (Number(opts.minKillsForKD) || 5),
-    format: (v, s) => `${v.toFixed(2)} (${s.kills}K/${s.deaths}D)`
+    format: (v) => v.toFixed(2)
   },
   {
     key: 'maxKillStreak',
     title: 'Longest Kill Streak',
     getValue: (s) => s.maxKillStreak,
-    qualifies: (s) => s.maxKillStreak >= 3,
-    format: (v) => `${v} kill streak`
+    qualifies: (s) => s.maxKillStreak >= 3
   },
   {
     key: 'revives',
     title: 'Most Revives',
     getValue: (s) => s.revives,
-    qualifies: (s) => s.revives >= 3,
-    format: (v) => `${v} revives`
+    qualifies: (s) => s.revives >= 3
   },
   {
     key: 'playerDamage',
     title: 'Most Damage to Players',
     getValue: (s) => s.playerDamage,
     qualifies: (s) => s.playerDamage >= 500,
-    format: (v) => `${formatInt(v)} dmg`
+    format: formatInt
   },
   {
     key: 'vehicleDamage',
     title: 'Most Damage to Vehicles',
     getValue: (s) => s.vehicleDamage,
     qualifies: (s) => s.vehicleDamage >= 300,
-    format: (v) => `${formatInt(v)} dmg`
+    format: formatInt
   },
   {
     key: 'damageByVehicle',
     title: 'Most Damage by Vehicle',
     getValue: (s) => s.damageByVehicle,
     qualifies: (s) => s.damageByVehicle >= 300,
-    format: (v) => `${formatInt(v)} dmg`
+    format: formatInt
   },
   {
     key: 'emplacementDamage',
     title: 'Most Damage to Emplacements',
     getValue: (s) => s.emplacementDamage,
     qualifies: (s) => s.emplacementDamage >= 200,
-    format: (v) => `${formatInt(v)} dmg`
+    format: formatInt
   }
 ];
 
@@ -359,7 +336,7 @@ export default class RoundScore extends DiscordBasePlugin {
     } else {
       if (player.name) stat.name = player.name;
       if (player.teamID != null) stat.teamID = player.teamID;
-      if (player.squadID !== undefined) stat.squadID = player.squadID;
+      if (player.squadID != null) stat.squadID = player.squadID;
     }
     return stat;
   }
@@ -414,7 +391,6 @@ export default class RoundScore extends DiscordBasePlugin {
     if (!sq) return;
     sq[field] += amount;
     sq.contributors.add(player.eosID);
-    this.verbose(2, `Added ${amount} to squad ${sq.squadName} (${sq.key}) ${field} from player ${player.name}.`);
   }
 
   isPlayerInVehicle(player) {
@@ -635,13 +611,12 @@ export default class RoundScore extends DiscordBasePlugin {
     });
 
     const totals = {
-      overall: makeBucket(),
       teams: { 1: makeBucket(), 2: makeBucket() }
     };
 
     const players = Array.from(this.playerStats.values());
     for (const p of players) {
-      const buckets = [totals.overall];
+      const buckets = [];
       if (p.teamID === 1 || p.teamID === 2) buckets.push(totals.teams[p.teamID]);
       for (const b of buckets) {
         b.kills += p.kills;
@@ -665,8 +640,7 @@ export default class RoundScore extends DiscordBasePlugin {
           return {
             ...p,
             value,
-            formatted: def.format(value, p),
-            compactFormatted: def.compactFormat ? def.compactFormat(value, p) : def.format(value, p)
+            formatted: def.format ? def.format(value) : String(value)
           };
         })
         .sort(
@@ -705,7 +679,7 @@ export default class RoundScore extends DiscordBasePlugin {
             return {
               ...s,
               value,
-              formatted: def.format(value, s)
+              formatted: def.format ? def.format(value) : String(value)
             };
           })
           .sort(
@@ -739,8 +713,13 @@ export default class RoundScore extends DiscordBasePlugin {
     return `${mins}m ${secs}s`;
   }
 
+  teamLabel(teamID) {
+    return this.server.currentTeams?.[Number(teamID) - 1]?.faction || `Team ${teamID}`;
+  }
+
   formatDiscordEmbed(info = {}, awards = this.computeAwards()) {
     const esc = RoundScore.escapeMarkdown;
+    const teamLabel = (id) => esc(this.teamLabel(id));
     const layerLabel =
       info?.winner?.layer ||
       this.server.currentLayer?.name ||
@@ -755,15 +734,21 @@ export default class RoundScore extends DiscordBasePlugin {
       description = `**Duration:** ${duration}`;
       const winTickets = Number(info.winner.tickets) || 0;
       const loseTickets = Number(info.loser.tickets) || 0;
-      const winLabel = [info.winner.faction, info.winner.subfaction].filter(Boolean).join(' - ');
-      const loseLabel = [info.loser.faction, info.loser.subfaction].filter(Boolean).join(' - ');
+      const sideLabel = (side) => {
+        const base = [side.faction, side.subfaction].filter(Boolean).join(' - ');
+        if (!base) return '';
+        const type = formatUnitType(this.server.currentTeams?.[Number(side.team) - 1]?.unit?.type);
+        return type ? `${base} (${type})` : base;
+      };
+      const winLabel = sideLabel(info.winner);
+      const loseLabel = sideLabel(info.loser);
 
       fields.push(
         {
           name: 'Winner',
           value: truncateEmbedText(
             [
-              `**Team ${esc(info.winner.team)}** — **${winTickets}** tickets`,
+              `**${teamLabel(info.winner.team)}** — **${winTickets}** tickets`,
               winLabel ? esc(winLabel) : null
             ]
               .filter(Boolean)
@@ -775,7 +760,7 @@ export default class RoundScore extends DiscordBasePlugin {
           name: 'Loser',
           value: truncateEmbedText(
             [
-              `**Team ${esc(info.loser.team)}** — **${loseTickets}** tickets`,
+              `**${teamLabel(info.loser.team)}** — **${loseTickets}** tickets`,
               loseLabel ? esc(loseLabel) : null
             ]
               .filter(Boolean)
@@ -800,18 +785,17 @@ export default class RoundScore extends DiscordBasePlugin {
       ].join('\n');
 
     fields.push(
-      { name: '── Match Totals ──', value: '\u200b', inline: false },
-      { name: 'Overall', value: formatBucketColumn(totals.overall), inline: true },
-      { name: 'Team 1', value: formatBucketColumn(totals.teams[1]), inline: true },
-      { name: 'Team 2', value: formatBucketColumn(totals.teams[2]), inline: true }
+      { name: '\u200b', value: '**── Match Totals ──**', inline: false },
+      { name: teamLabel(1), value: formatBucketColumn(totals.teams[1]), inline: true },
+      { name: teamLabel(2), value: formatBucketColumn(totals.teams[2]), inline: true }
     );
 
     const populatedIndividual = individualAwards.filter((a) => a.winners.length > 0);
     if (populatedIndividual.length > 0) {
-      fields.push({ name: '── Top Performers ──', value: '\u200b', inline: false });
+      fields.push({ name: '\u200b', value: '**── Top Players ──**', inline: false });
       for (const award of populatedIndividual) {
         const ranks = award.winners
-          .map((w, idx) => `${idx + 1}. **${esc(w.name)}** (${w.compactFormatted || w.formatted})`)
+          .map((w) => `${w.formatted}: **${esc(w.name)}**`)
           .join('\n');
         fields.push({
           name: truncateEmbedText(award.title, 256),
@@ -822,15 +806,19 @@ export default class RoundScore extends DiscordBasePlugin {
     }
 
     if (squadAwards.length > 0) {
-      fields.push({ name: '── Top Squads ──', value: '\u200b', inline: false });
+      fields.push({ name: '\u200b', value: '**── Top Squads ──**', inline: false });
       for (const teamID of [1, 2]) {
         const teamAwards = squadAwards.filter((a) => (a.teamID ?? a.winner.teamID) === teamID);
         if (teamAwards.length === 0) continue;
-        const header = `Team ${teamID}`;
+        const header = teamLabel(teamID);
         const body = teamAwards
           .map((a) => {
             const w = a.winner;
-            return `**${a.title}:** Sq ${w.squadID} "${esc(w.squadName)}" (${w.formatted})`;
+            const isDefaultName = new RegExp(`^squad\\s*${w.squadID}$`, 'i').test(
+              String(w.squadName).trim()
+            );
+            const nameLabel = isDefaultName ? '' : ` "${esc(w.squadName)}"`;
+            return `**${a.title}:** Sq ${w.squadID}${nameLabel} (${w.formatted})`;
           })
           .join('\n');
         fields.push({
@@ -842,10 +830,10 @@ export default class RoundScore extends DiscordBasePlugin {
     }
 
     if (shameAwards.length > 0) {
-      fields.push({ name: '── Rough Round ──', value: '\u200b', inline: false });
+      fields.push({ name: '\u200b', value: '**── Rough Round ──**', inline: false });
       for (const award of shameAwards) {
         const ranks = award.winners
-          .map((w, idx) => `${idx + 1}. **${esc(w.name)}** (${w.formatted})`)
+          .map((w) => `${w.formatted}: **${esc(w.name)}**`)
           .join('\n');
         fields.push({
           name: truncateEmbedText(award.title, 256),
@@ -884,14 +872,13 @@ export default class RoundScore extends DiscordBasePlugin {
 
     for (const award of awards.individualAwards) {
       award.winners.forEach((winner, idx) => {
-        pushLine(winner.eosID, `#${idx + 1} ${award.title} (${winner.formatted})`);
+        pushLine(winner.eosID, `#${idx + 1} ${award.title}: ${winner.formatted}`);
       });
     }
 
     for (const award of awards.squadAwards) {
       const sq = award.winner;
-      const prefix = award.teamID ? 'Team ' : '';
-      const line = `Sq ${sq.squadID} "${sq.squadName}": ${prefix}${award.title} (${sq.formatted})`;
+      const line = `Your squad had: ${award.title}: ${sq.formatted}`;
       for (const player of onlinePlayers) {
         if (!player?.eosID) continue;
         if (
@@ -907,7 +894,7 @@ export default class RoundScore extends DiscordBasePlugin {
     const messages = new Map();
     for (const [eosID, list] of linesByEOS.entries()) {
       if (list.length > 0) {
-        messages.set(eosID, ['Round Highlights:', ...list].join('\n'));
+        messages.set(eosID, ['Round Awards:', ...list].join('\n'));
       }
     }
     return messages;

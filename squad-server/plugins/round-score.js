@@ -1160,6 +1160,11 @@ export default class RoundScore extends DiscordBasePlugin {
 
   async onRoundEnd(info = {}) {
     try {
+      if (this.server.currentLayer?.gamemode === 'Seed') {
+        this.verbose(1, 'Seed round, skipping round summary.');
+        return;
+      }
+
       const awards = this.computeAwards();
 
       if (this.channel) {

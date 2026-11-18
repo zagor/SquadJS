@@ -1,6 +1,16 @@
 import BasePlugin from './base-plugin.js';
 import { Layers } from '../layers/index.js';
 
+const SAME_COUNTRY_PAIRS = [
+  ['USA', 'USMC'],
+  ['RGF', 'VDV'],
+  ['PLA', 'PLAAGF']
+];
+
+function sameCountry(a, b) {
+  return SAME_COUNTRY_PAIRS.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
+}
+
 const CHANGE_COOLDOWN_MS = 120 * 1000;
 
 export default class GoToSeed extends BasePlugin {
@@ -38,6 +48,12 @@ export default class GoToSeed extends BasePlugin {
         required: false,
         description: 'Seed layer to use if not random.',
         default: 'Sumari_Seed_v1'
+      },
+      prevent_same_country: {
+        required: false,
+        description:
+          'Do not pick random factions from the same country (USA vs USMC, RGF vs VDV, PLA vs PLAAGF).',
+        default: true
       },
       check_interval: {
         required: false,
@@ -82,13 +98,19 @@ export default class GoToSeed extends BasePlugin {
       this.verbose(1, 'Layer has fewer than two factions', layerName);
       return undefined;
     }
-    const faction1Num = Math.floor(Math.random() * layer.factions.length);
-    let faction2Num;
-    do {
-      faction2Num = Math.floor(Math.random() * layer.factions.length);
-    } while (faction2Num === faction1Num);
-
-    return `${layer.factions[faction1Num].factionId} ${layer.factions[faction2Num].factionId}`;
+    const pairs = [];
+    for (const f1 of layer.factions) {
+      for (const f2 of layer.factions) {
+        if (f1 === f2) continue;
+        if (this.options.prevent_same_country && sameCountry(f1.factionId, f2.factionId)) continue;
+        pairs.push(`${f1.factionId} ${f2.factionId}`);
+      }
+    }
+    if (pairs.length === 0) {
+      this.verbose(1, 'No valid faction pairs for layer', layerName);
+      return undefined;
+    }
+    return pairs[Math.floor(Math.random() * pairs.length)];
   }
 
   async onTimerExpiry() {

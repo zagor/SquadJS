@@ -7,6 +7,9 @@ const SOLDIER_PAWN_REGEX = /^BP_Soldier_/i;
 const STATIC_DEPLOYABLE_PAWN_REGEX =
   /^SQDeployable|_Deployable|Emplaced|_Tripod|Bunker|Baseplate|^BP_FOBRadio|_Hab|AdminCam|^CameraMan|FlyingDrone|UAV/i;
 
+const HELI_REGEX = /heli|helo|^BP_(?:MI|UH|CH|SA|Z)\d|MRH|Mi8|Mi17/i;
+const RADIO_REGEX = /FOBRadio/i;
+
 const formatInt = (val) => Math.round(val);
 
 const formatUnitType = (type) =>
@@ -260,6 +263,7 @@ export default class RoundScore extends DiscordBasePlugin {
     this.onDeployableTakeDamage = this.onDeployableTakeDamage.bind(this);
     this.onSquadCreated = this.onSquadCreated.bind(this);
     this.onSquadRenamed = this.onSquadRenamed.bind(this);
+    this.onCaptureZoneCaptured = this.onCaptureZoneCaptured.bind(this);
     this.onUpdatedSquadInformation = this.onUpdatedSquadInformation.bind(this);
 
     this.resetRoundStats();
@@ -286,6 +290,7 @@ export default class RoundScore extends DiscordBasePlugin {
     this.server.on('DEPLOYABLE_TAKE_DAMAGE', this.onDeployableTakeDamage);
     this.server.on('SQUAD_CREATED', this.onSquadCreated);
     this.server.on('SQUAD_RENAMED', this.onSquadRenamed);
+    this.server.on('CAPTURE_ZONE_CAPTURED', this.onCaptureZoneCaptured);
     this.server.on('UPDATED_SQUAD_INFORMATION', this.onUpdatedSquadInformation);
   }
 
@@ -302,6 +307,7 @@ export default class RoundScore extends DiscordBasePlugin {
     this.server.removeListener('DEPLOYABLE_TAKE_DAMAGE', this.onDeployableTakeDamage);
     this.server.removeListener('SQUAD_CREATED', this.onSquadCreated);
     this.server.removeListener('SQUAD_RENAMED', this.onSquadRenamed);
+    this.server.removeListener('CAPTURE_ZONE_CAPTURED', this.onCaptureZoneCaptured);
     this.server.removeListener('UPDATED_SQUAD_INFORMATION', this.onUpdatedSquadInformation);
   }
 
@@ -312,6 +318,8 @@ export default class RoundScore extends DiscordBasePlugin {
     this.activeVehicleByEOSID = new Map();
     this.killsByTeam = { 1: 0, 2: 0 };
     this.timeline = [];
+    this.markerEvents = [];
+    this.seenLosses = new Set();
   }
 
   ensurePlayerStat(player) {
@@ -549,6 +557,15 @@ export default class RoundScore extends DiscordBasePlugin {
       return;
     }
 
+    if (healthRemaining <= 0) {
+      const classname = data.vehicleClassname || victimVehicle || '';
+      this.recordLoss(
+        HELI_REGEX.test(classname) ? 'heli' : 'vehicle',
+        victimVehicle || classname,
+        attacker
+      );
+    }
+
     const effective = RoundScore.effectiveStructuralDamage(damage, healthRemaining);
     if (effective <= 0) return;
 
@@ -565,6 +582,10 @@ export default class RoundScore extends DiscordBasePlugin {
   onDeployableTakeDamage(data) {
     const { attacker, damage, healthRemaining } = data;
     if (!attacker) return;
+
+    if (healthRemaining <= 0 && RADIO_REGEX.test(data.deployable)) {
+      this.recordLoss('radio', `${data.deployable}_${data.deployableInstance}`, attacker);
+    }
 
     const effective = RoundScore.effectiveStructuralDamage(damage, healthRemaining);
     if (effective <= 0) return;
@@ -590,6 +611,28 @@ export default class RoundScore extends DiscordBasePlugin {
     if (sq && data.newName) sq.squadName = data.newName;
   }
 
+  recordMarker(kind, team) {
+    this.markerEvents.push({
+      kind,
+      team,
+      minutes: Math.max(0, (Date.now() - this.roundStartTime.getTime()) / 60000)
+    });
+  }
+
+  onCaptureZoneCaptured(data) {
+    const team = Number(data?.teamID);
+    if (team === 1 || team === 2) this.recordMarker('flag', team);
+  }
+
+  // The team losing the asset is the opponent of the attacker.
+  recordLoss(kind, key, attacker) {
+    const attackerTeam = Number(attacker?.teamID);
+    if (attackerTeam !== 1 && attackerTeam !== 2) return;
+    if (this.seenLosses.has(key)) return;
+    this.seenLosses.add(key);
+    this.recordMarker(kind, 3 - attackerTeam);
+  }
+
   recordTimelineSample(time = new Date()) {
     const tickets = this.server.tickets;
     if (!Array.isArray(tickets) || tickets.length < 2) return;
@@ -612,7 +655,7 @@ export default class RoundScore extends DiscordBasePlugin {
 
     const W = 900;
     const H = 450;
-    const m = { l: 60, r: 20, t: 50, b: 50 };
+    const m = { l: 60, r: 20, t: 70, b: 50 };
     const ctx = createCanvas(W, H);
     const g = ctx.getContext('2d');
     g.fillStyle = '#2b2d31';
@@ -685,7 +728,104 @@ export default class RoundScore extends DiscordBasePlugin {
     }
     g.setLineDash([]);
 
+    const ticketsAt = (team, minutes) => {
+      let prev = points[0];
+      for (const p of points) {
+        if (p.minutes >= minutes) {
+          const span = p.minutes - prev.minutes;
+          const f = span > 0 ? (minutes - prev.minutes) / span : 0;
+          return prev.tickets[team] + (p.tickets[team] - prev.tickets[team]) * f;
+        }
+        prev = p;
+      }
+      return prev.tickets[team];
+    };
+    // Each shape is a list of parts centred on (cx, cy); parts are filled and stroked.
+    const r = 7;
+    const shapes = {
+      vehicle: (cx, cy) => [() => g.rect(cx - r + 1, cy - r + 1, 2 * r - 2, 2 * r - 2)],
+      heli: (cx, cy) => [
+        () => {
+          g.moveTo(cx, cy - r);
+          g.lineTo(cx + r, cy);
+          g.lineTo(cx, cy + r);
+          g.lineTo(cx - r, cy);
+          g.closePath();
+        }
+      ],
+      radio: (cx, cy) => [
+        () => {
+          g.moveTo(cx, cy - r);
+          g.lineTo(cx + r, cy + r);
+          g.lineTo(cx - r, cy + r);
+          g.closePath();
+        }
+      ],
+      flag: (cx, cy) => [
+        () => {
+          g.moveTo(cx - 4, cy + r);
+          g.lineTo(cx - 4, cy - r);
+        },
+        () => {
+          g.moveTo(cx - 4, cy - r);
+          g.lineTo(cx + 7, cy - r + 4);
+          g.lineTo(cx - 4, cy - r + 8);
+          g.closePath();
+        }
+      ]
+    };
+    const drawMarker = (kind, cx, cy, color) => {
+      const parts = shapes[kind](cx, cy);
+      g.lineJoin = 'round';
+      g.lineCap = 'round';
+      // Dark halo so the marker stays visible over the lines.
+      g.strokeStyle = '#1e1f22';
+      g.lineWidth = 3.5;
+      for (const part of parts) {
+        g.beginPath();
+        part();
+        g.stroke();
+      }
+      g.strokeStyle = color;
+      g.fillStyle = color;
+      g.lineWidth = 1.5;
+      for (const part of parts) {
+        g.beginPath();
+        part();
+        g.fill();
+        g.stroke();
+      }
+      g.lineCap = 'butt';
+    };
+    for (const ev of this.markerEvents) {
+      if (ev.minutes > maxX) continue;
+      const t = ev.team - 1;
+      // Flags are not tied to one team's tickets, so they sit between the lines.
+      const py =
+        ev.kind === 'flag'
+          ? (y(ticketsAt(0, ev.minutes)) + y(ticketsAt(1, ev.minutes))) / 2
+          : y(ticketsAt(t, ev.minutes));
+      drawMarker(ev.kind, x(ev.minutes), py, colors[t]);
+    }
+
     g.textAlign = 'left';
+    let mx = m.l;
+    g.fillStyle = '#b5bac1';
+    g.fillText('Events:', mx, 49);
+    mx += 58;
+    for (const [kind, label] of [
+      ['vehicle', 'vehicle lost'],
+      ['heli', 'helicopter lost'],
+      ['radio', 'radio lost'],
+      ['flag', 'flag captured']
+    ]) {
+      drawMarker(kind, mx + 7, 45, '#b5bac1');
+      g.fillStyle = '#dbdee1';
+      g.fillText(label, mx + 20, 49);
+      mx += 34 + g.measureText(label).width + 14;
+    }
+
+    g.lineWidth = 2.5;
     let lx = m.l;
     for (const s of series) {
       g.strokeStyle = s.color;
